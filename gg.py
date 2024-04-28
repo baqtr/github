@@ -7,7 +7,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TOKEN = "7160859484:AAF2EWbFTxUbX-ST2XL4Lq-ku3E2suJ0m08"
+TOKEN = "6915008157:AAGt0kobKSfw3ZNsS6wCWFaau1j8zgq5e9U"
 GITHUB_TOKEN = "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"
 
 def start(update: Update, context: CallbackContext) -> None:
