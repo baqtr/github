@@ -11,7 +11,7 @@ TOKEN = "7160859484:AAF2EWbFTxUbX-ST2XL4Lq-ku3E2suJ0m08"
 GITHUB_TOKEN = "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"
 
 def start(update: Update, context: CallbackContext) -> None:
-    welcome_message = "تاكد من انه الملف مضغوط zip مع كامل المتطلبات مع توكنك وايديك داخل الملف قبله ارساله ذا لم يعمل يمكنك حذفه عن طريق بوت الحذف"
+    welcome_message = "هلا بك عزيزي يمكنك انشاء مستودع جيتهاب خاص بك وحسب اختيارك php/Python  يرجاء ارسال ملف مضغوط zip ذا كنت لاتعرف شئ قم بمراسلة موهان لكي يقوم بتعلييمك"
     bot_link_button = InlineKeyboardButton(text='بوت حذف المستودع ♨️', url='https://t.me/TG1RBABOT')
     telegram_link_button = InlineKeyboardButton(text='المطور موهان ✅', url='https://t.me/XX44G')
     keyboard = [[bot_link_button, telegram_link_button]]
