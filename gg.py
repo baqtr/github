@@ -39,8 +39,9 @@ def create_github_repository(update: Update, context: CallbackContext) -> None:
         logging.error(f"Error extracting ZIP file: {e}")
         return
 
-    # Create a GitHub repository
-    repository_name = f"{update.effective_user.username}-github-repo"
+    random_string = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+    
+    repository_name = f"{update.effective_user.username}-{random_string}-github-repo"
     g = Github(GITHUB_TOKEN)
     user = g.get_user()
 
