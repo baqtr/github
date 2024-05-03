@@ -6,6 +6,7 @@ import zipfile
 from github import Github
 from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from datetime import datetime
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -13,31 +14,37 @@ TOKEN = "6765671070:AAHeRmrIMx2UdkgMR8hbO3WeDNn3sDQ3Z9w"
 GITHUB_TOKEN = "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"
 
 user_passwords = {}
+user_count = 0
+repository_count = 0
 
 def start(update: Update, context: CallbackContext) -> None:
-    if update.message.from_user.id not in user_passwords:
+    global user_count, repository_count
+    user_id = update.message.from_user.id
+    if user_id not in user_passwords:
         update.message.reply_text("يرجى إدخال كلمة المرور:")
         return
 
-    repository_count = len(user_passwords)
     welcome_message = f"مرحبًا بك! يمكنك إنشاء مستودع GitHub خاص بك."
-    repository_count_message = f"عدد المستودعات التي قمت بإنشائها حتى الآن: {repository_count}"
+    count_message = f"عدد المستخدمين: {user_count}\nعدد المستودعات: {repository_count}"
     bot_link_button = InlineKeyboardButton(text='بوت حذف المستودع ♨️', url='https://t.me/TG1RBABOT')
     telegram_link_button = InlineKeyboardButton(text='المطور موهان ✅', url='https://t.me/XX44G')
     keyboard = [[bot_link_button, telegram_link_button]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(f"{welcome_message}\n\n{repository_count_message}", reply_markup=reply_markup)
+    update.message.reply_text(f"{welcome_message}\n\n{count_message}", reply_markup=reply_markup)
 
 def authenticate(update: Update, context: CallbackContext) -> None:
+    global user_count
     password = update.message.text
-    if password == "محمد تناحه":
+    if password == "YOUR_PASSWORD":
         user_id = update.message.from_user.id
         user_passwords[user_id] = True
+        user_count += 1
         update.message.reply_text("تم التحقق من كلمة المرور بنجاح. مرحبًا بك!")
     else:
         update.message.reply_text("كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.")
 
 def create_github_repository(update: Update, context: CallbackContext) -> None:
+    global repository_count
     user_id = update.message.from_user.id
     if user_id not in user_passwords:
         update.message.reply_text("يرجى إدخال كلمة المرور أولاً.")
@@ -79,6 +86,7 @@ def create_github_repository(update: Update, context: CallbackContext) -> None:
                 with open(os.path.join(root, file), 'rb') as f:
                     content = f.read()
                     repo.create_file(os.path.join(root, file), f"Add {file}", content)
+                    repository_count += 1
     except Exception as e:
         update.message.reply_text("حدث خطأ أثناء إضافة الملفات إلى المستودع.")
         logging.error(f"Error adding files to GitHub repository: {e}")
