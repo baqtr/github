@@ -35,7 +35,7 @@ def start(update: Update, context: CallbackContext) -> None:
     welcome_message = f"اهلا نورت  ارسل ملف مضغوط zip لرفعه على جيتهاب وتاكد من وضع متطلباته ويمكنك رفع ملف php ~ Python "
     user_count_message = f"عدد المستخدمين: {user_count}"
     repository_count_message = f"عدد المستودعات: {get_repository_count(GITHUB_TOKEN)}"
-    bot_link_button = InlineKeyboardButton(text='بوت حذف المستودع ♨️', url='https://t.me/kQNBot')
+    bot_link_button = InlineKeyboardButton(text='بوت حذف خادم ~ مستودع ♨️', url='https://t.me/kQNBot')
     telegram_link_button = InlineKeyboardButton(text='المطور موهان ✅', url='https://t.me/XX44G')
     keyboard = [[bot_link_button, telegram_link_button]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -44,7 +44,7 @@ def start(update: Update, context: CallbackContext) -> None:
 def authenticate(update: Update, context: CallbackContext) -> None:
     global user_count
     password = update.message.text
-    if password == "YOUR_PASSWORD":
+    if password == "محمد تناحه":
         user_id = update.message.from_user.id
         context.user_data[user_id] = True
         user_count += 1
