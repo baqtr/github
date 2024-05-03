@@ -11,7 +11,7 @@ from time import sleep
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TOKEN = "6765671070:AAHeRmrIMx2UdkgMR8hbO3WeDNn3sDQ3Z9w"
+TOKEN = "6444148337:AAEcKzMdqFprlQmKhp_J598JonchHXvj-hk"
 GITHUB_TOKEN = "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"
 
 user_count = 0
@@ -32,10 +32,10 @@ def start(update: Update, context: CallbackContext) -> None:
     # Delete bot's previous messages
     context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
     # Display welcome message
-    welcome_message = f"مرحبًا بك! يمكنك إنشاء مستودع GitHub خاص بك."
+    welcome_message = f"اهلا نورت  ارسل ملف مضغوط zip لرفعه على جيتهاب وتاكد من وضع متطلباته ويمكنك رفع ملف php ~ Python "
     user_count_message = f"عدد المستخدمين: {user_count}"
     repository_count_message = f"عدد المستودعات: {get_repository_count(GITHUB_TOKEN)}"
-    bot_link_button = InlineKeyboardButton(text='بوت حذف المستودع ♨️', url='https://t.me/TG1RBABOT')
+    bot_link_button = InlineKeyboardButton(text='بوت حذف المستودع ♨️', url='https://t.me/kQNBot')
     telegram_link_button = InlineKeyboardButton(text='المطور موهان ✅', url='https://t.me/XX44G')
     keyboard = [[bot_link_button, telegram_link_button]]
     reply_markup = InlineKeyboardMarkup(keyboard)
