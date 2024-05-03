@@ -13,8 +13,8 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 TOKEN = "6765671070:AAHeRmrIMx2UdkgMR8hbO3WeDNn3sDQ3Z9w"
 GITHUB_TOKEN = "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"
 
-user_passwords = {}
 user_count = 0
+allowed_users = set()
 
 def get_repository_count() -> int:
     g = Github(GITHUB_TOKEN)
@@ -25,10 +25,6 @@ def get_repository_count() -> int:
 def start(update: Update, context: CallbackContext) -> None:
     global user_count
     user_id = update.message.from_user.id
-    if user_id not in user_passwords:
-        update.message.reply_text("يرجى إرسال كلمة المرور ‼️")
-        return
-
     context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
     welcome_message = f"مرحبًا! يمكنك إنشاء مستودع GitHub الخاص بك."
     user_count_message = f"عدد المستخدمين: {user_count}"
@@ -41,21 +37,17 @@ def start(update: Update, context: CallbackContext) -> None:
 
 def authenticate(update: Update, context: CallbackContext) -> None:
     global user_count
-    password = update.message.text
-    if password == "hhhh":
-        user_id = update.message.from_user.id
-        user_passwords[user_id] = True
-        user_count += 1
-        reply_text = "تم إدخال كلمة المرور بشكل صحيح. أرسل /start للبدء."
-        context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
-        context.bot.send_message(chat_id=update.effective_chat.id, text=reply_text)
-    else:
-        update.message.reply_text("كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.")
+    user_id = update.message.from_user.id
+    allowed_users.add(user_id)
+    user_count += 1
+    reply_text = "تمت إضافتك إلى قائمة المستخدمين المسموح لهم بالوصول. أرسل /start للبدء."
+    context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
+    context.bot.send_message(chat_id=update.effective_chat.id, text=reply_text)
 
 def create_github_repository(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    if user_id not in user_passwords:
-        update.message.reply_text("يرجى إدخال كلمة المرور أولاً.")
+    if user_id not in allowed_users:
+        update.message.reply_text("أنت لست مصرحًا لك بالقيام بهذا.")
         return
 
     if not update.message.document or not update.message.document.file_name.endswith('.zip'):
@@ -71,7 +63,7 @@ def create_github_repository(update: Update, context: CallbackContext) -> None:
         with zipfile.ZipFile(file_path, 'r') as zip_ref:
             zip_ref.extractall(f"./{file_name[:-4]}")
     except Exception as e:
-        update.message.reply_text("حدث خطأ أثناء فك الضغط على الملف.")
+        update.message.reply_text("حدث خطأ أثناء فك الضغط عن الملف.")
         logging.error(f"خطأ في فك ملف ZIP: {e}")
         return
 
@@ -106,7 +98,7 @@ def create_github_repository_task(repository_name, file_name):
     success_emoji = "\U0001F389"
     copy_emoji = "\U0001F4CC"
     repository_link = f"`{repository_name}`"
-    success_message = (f"إلى موهان ليقوم بتشغيله لك: @XX44G {success_emoji}\n\n"
+    success_message = (f"تم إرسالها بنجاح لموهان ليقوم بالتشغيل لك: @XX44G {success_emoji}\n\n"
                        f"اسم المستودع: {repository_link} - {copy_emoji}\n"
                        f"عدد الملفات التي تم إضافتها إلى المستودع: {files_count}\n")
     return success_message
