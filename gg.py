@@ -49,7 +49,7 @@ def authenticate(update: Update, context: CallbackContext) -> None:
         user_passwords[user_id] = True
         user_count += 1
         reply_text = "تم التحقق من كلمة المرور بنجاح. مرحبًا بك!"
-        # Delete previous bot's messages
+        # Delete bot's previous messages
         context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
         # Display welcome message after 3 seconds
         context.bot.send_message(chat_id=update.effective_chat.id, text=reply_text)
