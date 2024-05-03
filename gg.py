@@ -26,7 +26,7 @@ def start(update: Update, context: CallbackContext) -> None:
     global user_count
     user_id = update.message.from_user.id
     if user_id not in user_passwords:
-        update.message.reply_text("يرجى إدخال كلمة المرور:")
+        update.message.reply_text("يرجاء ارسال كلمة المرور ‼️")
         return
 
     # Delete bot's previous messages
@@ -48,7 +48,7 @@ def authenticate(update: Update, context: CallbackContext) -> None:
         user_id = update.message.from_user.id
         user_passwords[user_id] = True
         user_count += 1
-        reply_text = "تم التحقق من كلمة المرور بنجاح. مرحبًا بك!"
+        reply_text = " تم داخل كلمة السر الصحيحه ارسال /start لنبدا "
         # Delete bot's previous messages
         context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
         # Display welcome message after 3 seconds
