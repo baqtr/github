@@ -115,7 +115,9 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     if query.data == "start_bot":
-        start(update, context)
+        welcome_message = f"تم التحقق من كلمة المرور بنجاح. مرحبًا بك!"
+        query.message.reply_text(welcome_message)
+        query.message.reply_text("تم تشغيل البوت بنجاح!", reply_markup=ReplyKeyboardRemove())
 
 def main() -> None:
     updater = Updater(TOKEN, use_context=True)
