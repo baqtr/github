@@ -30,7 +30,7 @@ def start(update: Update, context: CallbackContext) -> None:
 
 def authenticate(update: Update, context: CallbackContext) -> None:
     password = update.message.text
-    if password == "hhhh":
+    if password == "محمد تناحه":
         user_id = update.message.from_user.id
         user_passwords[user_id] = True
         update.message.reply_text("تم التحقق من كلمة المرور بنجاح. مرحبًا بك!")
