@@ -6,6 +6,7 @@ import zipfile
 from github import Github
 from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
+from time import sleep
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -45,9 +46,10 @@ def authenticate(update: Update, context: CallbackContext) -> None:
         user_passwords[user_id] = True
         user_count += 1
         reply_text = "تم التحقق من كلمة المرور بنجاح. مرحبًا بك!"
-        keyboard = [[InlineKeyboardButton("تشغيل البوت", callback_data="start_bot")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text(reply_text, reply_markup=reply_markup)
+        update.message.reply_text(reply_text)
+        sleep(3)
+        update.message.delete()
+        start(update, context)
     else:
         update.message.reply_text("كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.")
 
@@ -105,19 +107,11 @@ def create_github_repository(update: Update, context: CallbackContext) -> None:
     repository_link = f"`{repository_name}`"
     success_message = (f"الى موهان لكي يقوم بتشغيله لك : @XX44G {success_emoji}\n\n"
                        f"اسم المستودع: {repository_link} - {copy_emoji} انقر لنسخ الاسم\n"
-                       f"عدد الملفات التي تم وضعها في المستودع: {files_count}\n")
+                       f"عدد الملفات التي تم وضوعها في المستودع: {files_count}\n")
     update.message.reply_text(success_message, reply_markup=ReplyKeyboardRemove(), parse_mode='Markdown')
 
     os.remove(file_path)
     os.system(f"rm -rf ./{file_name[:-4]}")
-
-def button_callback(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    if query.data == "start_bot":
-        welcome_message = f"تم التحقق من كلمة المرور بنجاح. مرحبًا بك!"
-        query.message.reply_text(welcome_message)
-        query.message.reply_text("تم تشغيل البوت بنجاح!", reply_markup=ReplyKeyboardRemove())
 
 def main() -> None:
     updater = Updater(TOKEN, use_context=True)
@@ -126,7 +120,6 @@ def main() -> None:
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, authenticate))
     dp.add_handler(MessageHandler(Filters.document & Filters.private, create_github_repository))
-    dp.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
     updater.idle()
