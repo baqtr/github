@@ -5,7 +5,7 @@ import logging
 import zipfile
 from github import Github
 from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -40,11 +40,14 @@ def start(update: Update, context: CallbackContext) -> None:
 def authenticate(update: Update, context: CallbackContext) -> None:
     global user_count
     password = update.message.text
-    if password == "محمد تناحه":
+    if password == "hhhh":
         user_id = update.message.from_user.id
         user_passwords[user_id] = True
         user_count += 1
-        update.message.reply_text("تم التحقق من كلمة المرور بنجاح. مرحبًا بك!")
+        reply_text = "تم التحقق من كلمة المرور بنجاح. مرحبًا بك!"
+        keyboard = [[InlineKeyboardButton("تشغيل البوت", callback_data="start_bot")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text(reply_text, reply_markup=reply_markup)
     else:
         update.message.reply_text("كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.")
 
@@ -108,6 +111,12 @@ def create_github_repository(update: Update, context: CallbackContext) -> None:
     os.remove(file_path)
     os.system(f"rm -rf ./{file_name[:-4]}")
 
+def button_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+    if query.data == "start_bot":
+        start(update, context)
+
 def main() -> None:
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
@@ -115,6 +124,7 @@ def main() -> None:
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, authenticate))
     dp.add_handler(MessageHandler(Filters.document & Filters.private, create_github_repository))
+    dp.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
     updater.idle()
