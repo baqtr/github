@@ -30,7 +30,7 @@ def start(update: Update, context: CallbackContext) -> None:
         return
 
     # Delete bot's previous messages
-    context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
+    context.bot.delete_messages(chat_id=update.effective_chat.id, message_ids=[msg.message_id for msg in context.bot_history])
     # Display welcome message
     welcome_message = f"مرحبًا بك! يمكنك إنشاء مستودع GitHub خاص بك."
     user_count_message = f"عدد المستخدمين: {user_count}"
@@ -50,7 +50,7 @@ def authenticate(update: Update, context: CallbackContext) -> None:
         user_count += 1
         reply_text = "تم التحقق من كلمة المرور بنجاح. مرحبًا بك!"
         # Delete bot's previous messages
-        context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
+        context.bot.delete_messages(chat_id=update.effective_chat.id, message_ids=[msg.message_id for msg in context.bot_history])
         # Display welcome message after 3 seconds
         context.bot.send_message(chat_id=update.effective_chat.id, text=reply_text)
         sleep(3)
