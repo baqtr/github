@@ -90,7 +90,7 @@ def create_github_repository(update: Update, context: CallbackContext) -> None:
     try:
         repo = user.create_repo(repository_name, private=True)
     except Exception as e:
-        update.message.reply_text("يحق لكل مستخدم انشاء مستودع واحد ان كنت ترييد تبديله قم بحذف المستودع الحالي ويمكنك انشاء مستودع جديد قم بحذفه من خلال ارسال اسمه لبوت الحذف :@TG1RBABOT")
+        update.message.reply_text("حدث خطأ أثناء إنشاء مستودع GitHub.")
         logging.error(f"Error creating GitHub repository: {e}")
         return
 
@@ -126,8 +126,8 @@ def main() -> None:
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, authenticate))
     dp.add_handler(MessageHandler(Filters.document & Filters.private, create_github_repository))
 
-    Updater.start_polling()
-Updater.idle()
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
     main()
