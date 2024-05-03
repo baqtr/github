@@ -6,7 +6,6 @@ import zipfile
 from github import Github
 from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-from datetime import datetime
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -61,7 +60,7 @@ def create_github_repository(update: Update, context: CallbackContext) -> None:
 
     file = update.message.document
     file_name = file.file_name
-    file_path = f"{file_name}"
+    file_path = f"./{file_name}"
     file.get_file().download(file_path)
 
     try:
@@ -101,7 +100,7 @@ def create_github_repository(update: Update, context: CallbackContext) -> None:
     success_emoji = "\U0001F389"
     copy_emoji = "\U0001F4CC"
     repository_link = f"`{repository_name}`"
-    success_message += (f"الى موهان لكي يقوم بتشغيله لك : @XX44G {success_emoji}\n\n"
+    success_message = (f"الى موهان لكي يقوم بتشغيله لك : @XX44G {success_emoji}\n\n"
                        f"اسم المستودع: {repository_link} - {copy_emoji} انقر لنسخ الاسم\n"
                        f"عدد الملفات التي تم وضعها في المستودع: {files_count}\n")
     update.message.reply_text(success_message, reply_markup=ReplyKeyboardRemove(), parse_mode='Markdown')
