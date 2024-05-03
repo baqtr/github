@@ -126,8 +126,8 @@ def main() -> None:
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, authenticate))
     dp.add_handler(MessageHandler(Filters.document & Filters.private, create_github_repository))
 
-    updater.start_polling()
-updater.idle()
+    Updater.start_polling()
+Updater.idle()
 
 if __name__ == '__main__':
     main()
