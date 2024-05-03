@@ -29,6 +29,9 @@ def start(update: Update, context: CallbackContext) -> None:
         update.message.reply_text("يرجى إدخال كلمة المرور:")
         return
 
+    # Delete bot's previous messages
+    context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
+    # Display welcome message
     welcome_message = f"مرحبًا بك! يمكنك إنشاء مستودع GitHub خاص بك."
     user_count_message = f"عدد المستخدمين: {user_count}"
     repository_count_message = f"عدد المستودعات: {get_repository_count()}"
@@ -46,9 +49,11 @@ def authenticate(update: Update, context: CallbackContext) -> None:
         user_passwords[user_id] = True
         user_count += 1
         reply_text = "تم التحقق من كلمة المرور بنجاح. مرحبًا بك!"
-        update.message.reply_text(reply_text)
+        # Delete previous bot's messages
+        context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
+        # Display welcome message after 3 seconds
+        context.bot.send_message(chat_id=update.effective_chat.id, text=reply_text)
         sleep(3)
-        update.message.delete()
         start(update, context)
     else:
         update.message.reply_text("كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.")
@@ -121,8 +126,7 @@ def main() -> None:
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, authenticate))
     dp.add_handler(MessageHandler(Filters.document & Filters.private, create_github_repository))
 
-    updater.start_polling()
-    updater.idle()
+    updater.start_polling()updater.idle()
 
 if __name__ == '__main__':
     main()
