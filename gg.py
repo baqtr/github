@@ -1,22 +1,17 @@
 import os
 import telebot
-import requests
 import zipfile
 import tempfile
-import shutil
 import random
 import string
 from github import Github
 
-# استيراد توكن البوت من المتغيرات البيئية
 bot_token = "6444148337:AAEcKzMdqFprlQmKhp_J598JonchHXvj-hk"
 github_token = "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"
 
-# إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
 g = Github(github_token)
 
-# دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
     markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
@@ -29,19 +24,34 @@ def create_main_buttons():
     markup.row(button4)
     return markup
 
-# دالة لإنشاء زر العودة
 def create_back_button():
     markup = telebot.types.InlineKeyboardMarkup()
     back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
     markup.add(back_button)
     return markup
 
-# دالة لمعالجة الطلبات الواردة
+def show_latest_events(call):
+    pass
+
+def toggle_notifications(call):
+    pass
+
+def create_events_button():
+    markup = telebot.types.InlineKeyboardMarkup()
+    events_button = telebot.types.InlineKeyboardButton("الأحداث 📅", callback_data="show_latest_events")
+    markup.add(events_button)
+    return markup
+
+def create_notifications_button():
+    markup = telebot.types.InlineKeyboardMarkup()
+    notifications_button = telebot.types.InlineKeyboardButton("الإشعارات: تفعيل ✅", callback_data="toggle_notifications")
+    markup.add(notifications_button)
+    return markup
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
+    bot.send_message(message.chat.id, "مرحبًا! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
 
-# دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == "upload_file":
@@ -54,10 +64,13 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
+    elif call.data == "show_latest_events":
+        show_latest_events(call)
+    elif call.data == "toggle_notifications":
+        toggle_notifications(call)
     elif call.data == "go_back":
-        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
+        bot.edit_message_text("مرحبًا مرة أخرى! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
 
-# دالة لمعالجة ملف ZIP
 def handle_zip_file(message):
     if message.document and message.document.mime_type == 'application/zip':
         file_info = bot.get_file(message.document.file_id)
@@ -79,14 +92,13 @@ def handle_zip_file(message):
                         file_path = os.path.join(root, file_name)
                         relative_path = os.path.relpath(file_path, temp_dir)
                         with open(file_path, 'rb') as file_data:
-                            repo.create_file(relative_path, f"Add {relative_path}", file_data.read())
+                            repo.create_file(relative_path, f"إضافة {relative_path}", file_data.read())
                 
                 num_files = sum([len(files) for r, d, files in os.walk(temp_dir)])
                 bot.send_message(message.chat.id, f"تم إنشاء المستودع بنجاح.\nاسم المستودع: `{repo_name}`\nعدد الملفات: {num_files}", parse_mode='Markdown')
     else:
         bot.send_message(message.chat.id, "الملف الذي تم إرساله ليس ملف ZIP. يرجى المحاولة مرة أخرى.")
 
-# دالة لعرض مستودعات GitHub
 def list_github_repos(call):
     user = g.get_user()
     repos = user.get_repos()
@@ -103,7 +115,6 @@ def list_github_repos(call):
     else:
         bot.edit_message_text("لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
-# دالة لحذف مستودع
 def handle_repo_deletion(message):
     repo_name = message.text.strip()
     user = g.get_user()
@@ -114,15 +125,12 @@ def handle_repo_deletion(message):
     except:
         bot.send_message(message.chat.id, f"المستودع `{repo_name}` غير موجود أو لا تملك صلاحية حذفه.", parse_mode='Markdown')
 
-# دالة لحذف جميع المستودعات
 def delete_all_repos(call):
     user = g.get_user()
     repos = user.get_repos()
-    repo_count = repos.totalCount
-    for repo in repos:
+    repo_count = repos.totalCountfor repo in repos:
         repo.delete()
     bot.edit_message_text(f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
-# التشغيل
 if __name__ == "__main__":
     bot.polling()
