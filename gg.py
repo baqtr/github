@@ -1,133 +1,128 @@
 import os
-import string
-import secrets
-import logging
+import telebot
+import requests
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
+import tempfile
+import shutil
+import random
+import string
 from github import Github
-from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
-from time import sleep
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+# استيراد توكن البوت من المتغيرات البيئية
+bot_token = "6444148337:AAEcKzMdqFprlQmKhp_J598JonchHXvj-hk"
+github_token = "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"
 
-TOKEN = "6444148337:AAEcKzMdqFprlQmKhp_J598JonchHXvj-hk"
-GITHUB_TOKEN = "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"
+# إنشاء كائن البوت
+bot = telebot.TeleBot(bot_token)
+g = Github(github_token)
 
-user_count = 0
+# دالة لإنشاء الأزرار وتخصيصها
+def create_main_buttons():
+    markup = telebot.types.InlineKeyboardMarkup()
+    button1 = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
+    button2 = telebot.types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")
+    button3 = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
+    button4 = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
+    markup.row(button1)
+    markup.row(button2)
+    markup.row(button3)
+    markup.row(button4)
+    return markup
 
-def get_repository_count(github_token: str) -> int:
-    g = Github(github_token)
-    user = g.get_user()
-    repositories = user.get_repos()
-    return len(list(repositories))
+# دالة لإنشاء زر العودة
+def create_back_button():
+    markup = telebot.types.InlineKeyboardMarkup()
+    back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
+    markup.add(back_button)
+    return markup
 
-def start(update: Update, context: CallbackContext) -> None:
-    global user_count
-    user_id = update.message.from_user.id
-    if user_id not in context.user_data:
-        update.message.reply_text("يرجاء ارسال كلمة المرور ‼️")
-        return
+# دالة لمعالجة الطلبات الواردة
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
 
-    # Delete bot's previous messages
-    context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
-    # Display welcome message
-    welcome_message = f"اهلا نورت  ارسل ملف مضغوط zip لرفعه على جيتهاب وتاكد من وضع متطلباته ويمكنك رفع ملف php ~ Python "
-    user_count_message = f"عدد المستخدمين: {user_count}"
-    repository_count_message = f"عدد المستودعات: {get_repository_count(GITHUB_TOKEN)}"
-    bot_link_button = InlineKeyboardButton(text='بوت حذف خادم ~ مستودع ♨️', url='https://t.me/kQNBot')
-    telegram_link_button = InlineKeyboardButton(text='المطور موهان ✅', url='https://t.me/XX44G')
-    keyboard = [[bot_link_button, telegram_link_button]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(f"{welcome_message}\n\n{user_count_message}\n{repository_count_message}", reply_markup=reply_markup)
+# دالة لمعالجة النقرات على الأزرار
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == "upload_file":
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP.")
+        bot.register_next_step_handler(msg, handle_zip_file)
+    elif call.data == "list_github_repos":
+        list_github_repos(call)
+    elif call.data == "delete_repo":
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم المستودع لحذفه.")
+        bot.register_next_step_handler(msg, handle_repo_deletion)
+    elif call.data == "delete_all_repos":
+        delete_all_repos(call)
+    elif call.data == "go_back":
+        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
 
-def authenticate(update: Update, context: CallbackContext) -> None:
-    global user_count
-    password = update.message.text
-    if password == "محمد تناحه":
-        user_id = update.message.from_user.id
-        context.user_data[user_id] = True
-        user_count += 1
-        reply_text = " تم داخل كلمة السر الصحيحه ارسال /start لنبدا "
-        # Delete bot's previous messages
-        context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
-        # Display welcome message after 3 seconds
-        context.bot.send_message(chat_id=update.effective_chat.id, text=reply_text)
-        sleep(3)
-        start(update, context)
+# دالة لمعالجة ملف ZIP
+def handle_zip_file(message):
+    if message.document and message.document.mime_type == 'application/zip':
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            zip_path = os.path.join(temp_dir, message.document.file_name)
+            with open(zip_path, 'wb') as new_file:
+                new_file.write(downloaded_file)
+            
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+                repo_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+                user = g.get_user()
+                repo = user.create_repo(repo_name, private=True)
+                
+                for root, dirs, files in os.walk(temp_dir):
+                    for file_name in files:
+                        file_path = os.path.join(root, file_name)
+                        relative_path = os.path.relpath(file_path, temp_dir)
+                        with open(file_path, 'rb') as file_data:
+                            repo.create_file(relative_path, f"Add {relative_path}", file_data.read())
+                
+                num_files = sum([len(files) for r, d, files in os.walk(temp_dir)])
+                bot.send_message(message.chat.id, f"تم إنشاء المستودع بنجاح.\nاسم المستودع: `{repo_name}`\nعدد الملفات: {num_files}", parse_mode='Markdown')
     else:
-        update.message.reply_text("كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.")
+        bot.send_message(message.chat.id, "الملف الذي تم إرساله ليس ملف ZIP. يرجى المحاولة مرة أخرى.")
 
-def create_github_repository(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    if user_id not in context.user_data:
-        update.message.reply_text("يرجى إدخال كلمة المرور أولاً.")
-        return
-
-    if not update.message.document or not update.message.document.file_name.endswith('.zip'):
-        update.message.reply_text("يرجى إرسال ملف مضغوط (ZIP).")
-        return
-
-    file = update.message.document
-    file_name = file.file_name
-    file_path = f"./{file_name}"
-    file.get_file().download(file_path)
-
-    try:
-        with zipfile.ZipFile(file_path, 'r') as zip_ref:
-            zip_ref.extractall(f"./{file_name[:-4]}")
-    except Exception as e:
-        update.message.reply_text("حدث خطأ أثناء فك الضغط على الملف.")
-        logging.error(f"Error extracting ZIP file: {e}")
-        return
-
-    random_string = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(2))
-    
-    repository_name = f"{update.effective_user.username}-{random_string}-github-repo"
-    g = Github(GITHUB_TOKEN)
+# دالة لعرض مستودعات GitHub
+def list_github_repos(call):
     user = g.get_user()
+    repos = user.get_repos()
+    repo_list = ""
+    for repo in repos:
+        try:
+            contents = repo.get_contents("")
+            num_files = sum(1 for _ in contents)
+            repo_list += f"اسم المستودع: `{repo.name}`\nعدد الملفات: {num_files}\n\n"
+        except Exception as e:
+            bot.send_message(call.message.chat.id, f"خطأ في جلب محتويات المستودع `{repo.name}`: {str(e)}")
+    if repo_list:
+        bot.edit_message_text(f"مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+    else:
+        bot.edit_message_text("لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
+# دالة لحذف مستودع
+def handle_repo_deletion(message):
+    repo_name = message.text.strip()
+    user = g.get_user()
     try:
-        repo = user.create_repo(repository_name, private=True)
-    except Exception as e:
-        update.message.reply_text("حدث خطأ أثناء إنشاء مستودع GitHub.")
-        logging.error(f"Error creating GitHub repository: {e}")
-        return
+        repo = user.get_repo(repo_name)
+        repo.delete()
+        bot.send_message(message.chat.id, f"تم حذف المستودع `{repo_name}` بنجاح.", parse_mode='Markdown')
+    except:
+        bot.send_message(message.chat.id, f"المستودع `{repo_name}` غير موجود أو لا تملك صلاحية حذفه.", parse_mode='Markdown')
 
-    try:
-        for root, dirs, files in os.walk(f"./{file_name[:-4]}"):
-            for file in files:
-                with open(os.path.join(root, file), 'rb') as f:
-                    content = f.read()
-                    repo.create_file(os.path.join(root, file), f"Add {file}", content)
-    except Exception as e:
-        update.message.reply_text("حدث خطأ أثناء إضافة الملفات إلى المستودع.")
-        logging.error(f"Error adding files to GitHub repository: {e}")
-        return
+# دالة لحذف جميع المستودعات
+def delete_all_repos(call):
+    user = g.get_user()
+    repos = user.get_repos()
+    repo_count = repos.totalCount
+    for repo in repos:
+        repo.delete()
+    bot.edit_message_text(f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
-    files_count = sum(len(files) for _, _, files in os.walk(f"./{file_name[:-4]}"))
-
-    success_emoji = "\U0001F389"
-    copy_emoji = "\U0001F4CC"
-    repository_link = f"`{repository_name}`"
-    success_message = (f"الى موهان لكي يقوم بتشغيله لك : @XX44G {success_emoji}\n\n"
-                       f"اسم المستودع: {repository_link} - {copy_emoji} انقر لنسخ الاسم\n"
-                       f"عدد الملفات التي تم وضوعها في المستودع: {files_count}\n")
-    update.message.reply_text(success_message, reply_markup=ReplyKeyboardRemove(), parse_mode='Markdown')
-
-    os.remove(file_path)
-    os.system(f"rm -rf ./{file_name[:-4]}")
-
-def main() -> None:
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, authenticate))
-    dp.add_handler(MessageHandler(Filters.document & Filters.private, create_github_repository))
-
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
+# التشغيل
+if __name__ == "__main__":
+    bot.polling()
