@@ -7,6 +7,7 @@ import shutil
 import random
 import string
 from github import Github
+from telebot import types
 
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "6444148337:AAEcKzMdqFprlQmKhp_J598JonchHXvj-hk"
@@ -16,40 +17,39 @@ github_token = "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"
 bot = telebot.TeleBot(bot_token)
 g = Github(github_token)
 
-# قائمة لتخزين الأحداث
+# قائمة لتخزين الأحداث والمستخدمين
 events = []
-
-# حالة الإشعارات
+users = set()
 notifications_enabled = True
 
 # دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
-    markup = telebot.types.InlineKeyboardMarkup()
-    button1 = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
-    button2 = telebot.types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")
-    button3 = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
-    button4 = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
-    button5 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
-    notification_status = "تفعيل ✅" if notifications_enabled else "معطل ❌"
-    button6 = telebot.types.InlineKeyboardButton(f"الإشعارات: {notification_status}", callback_data="toggle_notifications")
-    markup.row(button1)
-    markup.row(button2)
-    markup.row(button3)
-    markup.row(button4)
+    markup = types.InlineKeyboardMarkup()
+    button1 = types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
+    button2 = types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")
+    button3 = types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
+    button4 = types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
+    button5 = types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
+    button6 = types.InlineKeyboardButton(f"الإشعارات: {'تفعيل ✅' if notifications_enabled else 'معطل ❌'}", callback_data="toggle_notifications")
+    button7 = types.InlineKeyboardButton(f"عدد المستخدمين 👥: {len(users)}", callback_data="user_count")
+    markup.row(button1, button2)
+    markup.row(button3, button4)
     markup.row(button5)
     markup.row(button6)
+    markup.row(button7)
     return markup
 
 # دالة لإنشاء زر العودة
 def create_back_button():
-    markup = telebot.types.InlineKeyboardMarkup()
-    back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
+    markup = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
     markup.add(back_button)
     return markup
 
 # دالة لمعالجة الطلبات الواردة
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    users.add(message.chat.id)
     bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
 
 # دالة لمعالجة النقرات على الأزرار
@@ -71,6 +71,8 @@ def callback_query(call):
     elif call.data == "toggle_notifications":
         notifications_enabled = not notifications_enabled
         bot.edit_message_text("تم تعديل حالة الإشعارات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
+    elif call.data == "user_count":
+        bot.answer_callback_query(call.id, f"عدد المستخدمين الكلي: {len(users)}")
     elif call.data == "go_back":
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
 
@@ -99,11 +101,11 @@ def handle_zip_file(message):
                             repo.create_file(relative_path, f"Add {relative_path}", file_data.read())
                 
                 num_files = sum([len(files) for r, d, files in os.walk(temp_dir)])
-                event = f"تم إنشاء المستودع: `{repo_name}`\nعدد الملفات: {num_files}"
+                event = f"👤 *المستخدم*: `{message.from_user.username}`\n📦 *تم إنشاء المستودع*: `{repo_name}`\n📁 *عدد الملفات*: {num_files}"
                 events.append(event)
                 bot.send_message(message.chat.id, event, parse_mode='Markdown')
                 if notifications_enabled:
-                    bot.send_message(message.chat.id, f"إشعار: {event}", parse_mode='Markdown')
+                    notify_all_users(event)
     else:
         bot.send_message(message.chat.id, "الملف الذي تم إرساله ليس ملف ZIP. يرجى المحاولة مرة أخرى.")
 
@@ -116,7 +118,7 @@ def list_github_repos(call):
         try:
             contents = repo.get_contents("")
             num_files = sum(1 for _ in contents)
-            repo_list += f"اسم المستودع: `{repo.name}`\nعدد الملفات: {num_files}\n\n"
+            repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n📁 *عدد الملفات*: {num_files}\n\n"
         except Exception as e:
             bot.send_message(call.message.chat.id, f"خطأ في جلب محتويات المستودع `{repo.name}`: {str(e)}")
     if repo_list:
@@ -131,11 +133,11 @@ def handle_repo_deletion(message):
     try:
         repo = user.get_repo(repo_name)
         repo.delete()
-        event = f"تم حذف المستودع `{repo_name}` بنجاح."
+        event = f"👤 *المستخدم*: `{message.from_user.username}`\n🗑️ *تم حذف المستودع*: `{repo_name}`"
         events.append(event)
         bot.send_message(message.chat.id, event, parse_mode='Markdown')
         if notifications_enabled:
-            bot.send_message(message.chat.id, f"إشعار: {event}", parse_mode='Markdown')
+            notify_all_users(event)
     except:
         bot.send_message(message.chat.id, f"المستودع `{repo_name}` غير موجود أو لا تملك صلاحية حذفه.", parse_mode='Markdown')
 
@@ -146,11 +148,11 @@ def delete_all_repos(call):
     repo_count = repos.totalCount
     for repo in repos:
         repo.delete()
-    event = f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}"
+    event = f"👤 *المستخدم*: `{call.from_user.username}`\n🗑️ *تم حذف جميع المستودعات*.\n📦 *عدد المستودعات المحذوفة*: {repo_count}"
     events.append(event)
     bot.edit_message_text(event, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
     if notifications_enabled:
-        bot.send_message(call.message.chat.id, f"إشعار: {event}", parse_mode='Markdown')
+        notify_all_users(event)
 
 # دالة لعرض الأحداث
 def show_events(call):
@@ -159,6 +161,11 @@ def show_events(call):
         bot.edit_message_text(f"الأحداث:\n{events_text}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
     else:
         bot.edit_message_text("لا توجد أحداث لعرضها.", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+
+# دالة لإرسال الإشعارات لجميع المستخدمين
+def notify_all_users(event):
+    for user_id in users:
+        bot.send_message(user_id, f"إشعار: {event}", parse_mode='Markdown')
 
 # التشغيل
 if __name__ == "__main__":
