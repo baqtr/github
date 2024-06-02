@@ -26,7 +26,7 @@ user_notifications = {}
 def create_main_buttons(user_id):
     markup = types.InlineKeyboardMarkup()
     button1 = types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
-    button2 = types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")
+    button2 = types.InlineKeyboardButton("عرض المستودعات 📂", callback_data="list_github_repos")
     button3 = types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
     button4 = types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
     button5 = types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
