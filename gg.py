@@ -43,6 +43,11 @@ def create_main_buttons():
     markup.add(button1, button2)
     markup.add(button3)
     markup.add(button4)
+    
+    # إضافة زر النسخة الاحتياطية
+    backup_button = telebot.types.InlineKeyboardButton("نسخة احتياطية 📁", callback_data="backup")
+    markup.add(backup_button)
+    
     return markup
 
 def create_github_control_buttons():
