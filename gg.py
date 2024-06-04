@@ -1,4 +1,4 @@
-ort os
+import os
 import telebot
 import requests
 import threading
