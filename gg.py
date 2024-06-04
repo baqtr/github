@@ -365,8 +365,5 @@ def list_github_repos(call):
     bot.edit_message_text(f"المستودعات المتاحة:\n{repos_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
 
 # بدء تشغيل البوت
-def main():
-    bot.polling(none_stop=True)
-
 if __name__ == "__main__":
-    main()
+    bot.polling()
