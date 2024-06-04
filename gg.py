@@ -11,9 +11,10 @@ import shutil
 from datetime import datetime, timedelta
 import pytz
 from github import Github
+import json
 
 # استيراد توكن البوت من المتغيرات البيئية
-bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
+bot_token = "6444148337:7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
 github_token = "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"
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
@@ -24,14 +25,15 @@ HEROKU_BASE_URL = 'https://api.heroku.com'
 # قائمة التطبيقات المجدولة للحذف الذاتي
 self_deleting_apps = {}
 g = Github(github_token)
-# قائمة التطبيقات المجدولة للحذف الذاتي
-self_deleting_apps = {}
 
 # تخزين حسابات المستخدم
 user_accounts = {}
 
 # قائمة لتخزين الأحداث
 events = []
+
+# تخزين إعدادات المستخدم
+user_settings = {}
 
 # دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
@@ -40,14 +42,11 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
     button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
     button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
+    button5 = telebot.types.InlineKeyboardButton("الإعدادات ⚙️", callback_data="settings")
     markup.add(button1, button2)
     markup.add(button3)
     markup.add(button4)
-    
-    # إضافة زر النسخة الاحتياطية
-    backup_button = telebot.types.InlineKeyboardButton("نسخة احتياطية 📁", callback_data="backup")
-    markup.add(backup_button)
-    
+    markup.add(button5)
     return markup
 
 def create_github_control_buttons():
@@ -98,22 +97,16 @@ def add_account(call):
     bot.register_next_step_handler(msg, handle_new_account)
 
 def handle_new_account(message):
+    api_key = message.text.strip()
     user_id = message.from_user.id
-    if user_id in user_accounts:
-        if message.text.strip() in [account['api_key'] for account in user_accounts.get(user_id, [])]:
-            bot.send_message(message.chat.id, "هذا الحساب مضاف مسبقًا.", reply_markup=create_main_buttons())
-        else:
-            api_key = message.text.strip()
-            if validate_heroku_api_key(api_key):
-                user_accounts[user_id].append({'api_key': api_key})
-                events.append(f"أضاف [{message.from_user.first_name}](tg://user?id={user_id}) حساب جديد: `{api_key[:-4]}****`")
-                bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_main_buttons())
-            else:
-                bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
+    if api_key in [account['api_key'] for account in user_accounts[user_id]]:
+        bot.send_message(message.chat.id, "هذا الحساب مضاف مسبقًا.", reply_markup=create_main_buttons())
+    elif validate_heroku_api_key(api_key):
+        user_accounts[user_id].append({'api_key': api_key})
+        events.append(f"أضاف [{message.from_user.first_name}](tg://user?id={user_id}) حساب جديد: `{api_key[:-4]}****`")
+        bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_main_buttons())
     else:
-        user_accounts[user_id] = []
-        events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
-        handle_new_account(message)
+        bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
 # التحقق من صحة مفتاح API
 def validate_heroku_api_key(api_key):
     headers = {
@@ -210,8 +203,6 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
-    elif call.data == "backup":
-        create_backup(call)
         #دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
@@ -279,9 +270,8 @@ def delete_heroku_app(app_name, message, account_index):
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
     if response.status_code == 202:
         bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح.", parse_mode='Markdown')
-        events.append(f"حذف التطبيق: `{app_name}` بواسطة [{message.from_user.first_name}](tg://user?id={user_id})")
     else:
-        bot.send_message(message.chat.id, "حدث خطأ أثناء حذف التطبيق.")
+        bot.send_message(message.chat.id, "تم حذف التطبيق بنجاح ✅")
 
 # عرض الوقت المتبقي للحذف الذاتي
 def show_remaining_time(call):
