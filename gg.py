@@ -167,42 +167,44 @@ def list_heroku_apps(call):
 
 # دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
+def callback_handler(call):
     if call.data == "add_account":
         add_account(call)
     elif call.data == "list_accounts":
         list_accounts(call)
     elif call.data == "show_events":
         show_events(call)
-    elif call.data.startswith("select_account_"):
-        account_index = int(call.data.split("_")[-1])
-        bot.edit_message_text(f"إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
-    elif call.data.startswith("list_heroku_apps_"):
-        list_heroku_apps(call)
-    elif call.data.startswith("delete_app_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_deletion(m, account_index))
-    elif call.data.startswith("self_delete_app_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق للحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
-    elif call.data == "remaining_time":
-        show_remaining_time(call)
-    elif call.data == "go_back":
-        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
-        bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
-    elif call.data == "upload_file":
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP.")
-        bot.register_next_step_handler(msg, handle_zip_file)
-    elif call.data == "list_github_repos":
-        list_github_repos(call)
-    elif call.data == "delete_repo":
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم المستودع لحذفه.")
-        bot.register_next_step_handler(msg, handle_repo_deletion)
+        bot.edit_message_text("قسم جيتهاب: اختر الإجراء المطلوب:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
+    elif call.data == "settings":
+        show_settings(call)
+    elif "list_heroku_apps_" in call.data:
+        list_heroku_apps(call)
+    elif "select_account_" in call.data:
+        account_index = int(call.data.split("_")[-1])
+        bot.edit_message_text(f"تم اختيار الحساب رقم {account_index + 1}. اختر الإجراء المطلوب:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
+    elif call.data == "go_back":
+        bot.edit_message_text("اهلا وسهلا نورتنا اختار من بين الازرار ماذا تريد", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
+    elif call.data == "delete_repo":
+        delete_repo(call)
+    elif call.data == "upload_file":
+        upload_file(call)
+    elif call.data == "list_github_repos":
+        list_github_repos(call)
+    elif call.data == "create_backup":
+        create_backup(call)
+    elif call.data == "restore_backup":
+        restore_backup(call)
+    elif call.data == "delete_all_accounts":
+        delete_all_accounts(call)
+    elif call.data == "toggle_safe_mode":
+        toggle_safe_mode(call)
+    elif "delete_app_" in call.data:
+        delete_app(call)
+    elif "self_delete_app_" in call.data:
+        self_delete_app(call)
         #دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
