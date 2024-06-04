@@ -266,8 +266,9 @@ def delete_heroku_app(app_name, message, account_index):
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
     if response.status_code == 202:
         bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح.", parse_mode='Markdown')
+        events.append(f"حذف التطبيق: `{app_name}` بواسطة [{message.from_user.first_name}](tg://user?id={user_id})")
     else:
-        bot.send_message(message.chat.id, "تم حذف التطبيق بنجاح ✅")
+        bot.send_message(message.chat.id, "حدث خطأ أثناء حذف التطبيق.")
 
 # عرض الوقت المتبقي للحذف الذاتي
 def show_remaining_time(call):
