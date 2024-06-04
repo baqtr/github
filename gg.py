@@ -93,16 +93,22 @@ def add_account(call):
     bot.register_next_step_handler(msg, handle_new_account)
 
 def handle_new_account(message):
-    api_key = message.text.strip()
     user_id = message.from_user.id
-    if api_key in [account['api_key'] for account in user_accounts[user_id]]:
-        bot.send_message(message.chat.id, "هذا الحساب مضاف مسبقًا.", reply_markup=create_main_buttons())
-    elif validate_heroku_api_key(api_key):
-        user_accounts[user_id].append({'api_key': api_key})
-        events.append(f"أضاف [{message.from_user.first_name}](tg://user?id={user_id}) حساب جديد: `{api_key[:-4]}****`")
-        bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_main_buttons())
+    if user_id in user_accounts:
+        if message.text.strip() in [account['api_key'] for account in user_accounts.get(user_id, [])]:
+            bot.send_message(message.chat.id, "هذا الحساب مضاف مسبقًا.", reply_markup=create_main_buttons())
+        else:
+            api_key = message.text.strip()
+            if validate_heroku_api_key(api_key):
+                user_accounts[user_id].append({'api_key': api_key})
+                events.append(f"أضاف [{message.from_user.first_name}](tg://user?id={user_id}) حساب جديد: `{api_key[:-4]}****`")
+                bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_main_buttons())
+            else:
+                bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
     else:
-        bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
+        user_accounts[user_id] = []
+        events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
+        handle_new_account(message)
 # التحقق من صحة مفتاح API
 def validate_heroku_api_key(api_key):
     headers = {
