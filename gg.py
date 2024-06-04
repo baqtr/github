@@ -210,6 +210,8 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
+    elif call.data == "backup":
+        create_backup(call)
         #دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
