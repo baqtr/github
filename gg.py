@@ -13,7 +13,7 @@ import pytz
 from github import Github
 
 # استيراد توكن البوت من المتغيرات البيئية
-bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
+bot_token = "6444148337:AAFANHnwUPQXnq_SLHnqhsuH9WnSxALtUvo"
 github_token = "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"
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
@@ -82,17 +82,6 @@ def create_account_control_buttons(account_index):
     markup.add(button4)
     markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="list_accounts"))
     return markup
-    
-    def create_safe_mode_settings_buttons(user_id):
-    markup = telebot.types.InlineKeyboardMarkup()
-    delete_prevention_status = "مفعل ✅" if safe_mode_settings.get(user_id, {}).get("delete_prevention", False) else "معطل ❌"
-    auto_delete_api_status = "مفعل ✅" if safe_mode_settings.get(user_id, {}).get("auto_delete_api", False) else "معطل ❌"
-    button1 = telebot.types.InlineKeyboardButton(f"منع الحذف: {delete_prevention_status}", callback_data="toggle_delete_prevention")
-    button2 = telebot.types.InlineKeyboardButton(f"حذف API تلقائيًا: {auto_delete_api_status}", callback_data="toggle_auto_delete_api")
-    markup.add(button1)
-    markup.add(button2)
-    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
-    return markup
 
 # دالة لمعالجة الطلبات الواردة
 @bot.message_handler(commands=['start'])
@@ -102,23 +91,6 @@ def send_welcome(message):
         user_accounts[user_id] = []
         events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
     bot.send_message(message.chat.id, "اهلا وسهلا نورتنا اختار من بين الازرار ماذا تريد", reply_markup=create_main_buttons())
-    
-    def settings(call):
-    user_id = call.from_user.id
-    bot.edit_message_text("إعدادات الوضع الآمن:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_safe_mode_settings_buttons(user_id))
-
-def toggle_delete_prevention(call):
-    user_id = call.from_user.id
-    settings = safe_mode_settings.setdefault(user_id, {})
-    settings["delete_prevention"] = not settings.get("delete_prevention", False)
-    bot.edit_message_text("إعدادات الوضع الآمن:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_safe_mode_settings_buttons(user_id))
-
-def toggle_auto_delete_api(call):
-    user_id = call.from_user.id
-    settings = safe_mode_settings.setdefault(user_id, {})
-    settings["auto_delete_api"] = not settings.get("auto_delete_api", False)
-    bot.edit_message_text("إعدادات الوضع الآمن:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_safe_mode_settings_buttons(user_id))
-
 
 # دالة لإضافة حساب جديد
 def add_account(call):
@@ -201,6 +173,8 @@ def callback_query(call):
         add_account(call)
     elif call.data == "list_accounts":
         list_accounts(call)
+    elif call.data == "show_events":
+        show_events(call)
     elif call.data.startswith("select_account_"):
         account_index = int(call.data.split("_")[-1])
         bot.edit_message_text(f"إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
@@ -217,7 +191,7 @@ def callback_query(call):
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back":
-        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons(call.from_user.id))
+        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
         bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
     elif call.data == "upload_file":
@@ -230,14 +204,6 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
-    elif call.data == "settings":
-        settings(call)
-    elif call.data == "toggle_safe_mode":
-        toggle_safe_mode(call)
-    elif call.data == "toggle_delete_prevention":
-        toggle_delete_prevention(call)
-    elif call.data == "toggle_auto_delete_api":
-        toggle_auto_delete_api(call)
         #دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
