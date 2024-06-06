@@ -1,6 +1,7 @@
-import os
 import telebot
 import requests
+import random
+import string
 
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
@@ -17,9 +18,6 @@ self_deleting_apps = {}
 # تخزين حسابات المستخدم
 user_accounts = {}
 
-# قائمة لتخزين الأحداث
-events = []
-
 # حالة الوضع الآمن لكل مستخدم
 safe_mode = {}
 
@@ -31,12 +29,10 @@ def create_main_buttons(user_id):
     markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
-    button3 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
     button4 = telebot.types.InlineKeyboardButton("الإعدادات ⚙", callback_data="settings")
     safe_mode_status = "مفعل ✅" if safe_mode.get(user_id, False) else "معطل ❌"
     button5 = telebot.types.InlineKeyboardButton(f"الوضع الآمن: {safe_mode_status}", callback_data="toggle_safe_mode")
     markup.add(button1, button2)
-    markup.add(button3)
     markup.add(button4)
     markup.add(button5)
     return markup
@@ -72,7 +68,6 @@ def send_welcome(message):
     user_id = message.from_user.id
     if user_id not in user_accounts:
         user_accounts[user_id] = []
-        events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
     bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons(user_id))
 
 def add_account(call):
@@ -86,7 +81,6 @@ def handle_new_account(message):
         bot.send_message(message.chat.id, "هذا الحساب مضاف مسبقًا.", reply_markup=create_main_buttons(user_id))
     elif validate_heroku_api_key(api_key):
         user_accounts[user_id].append({'api_key': api_key})
-        events.append(f"أضاف [{message.from_user.first_name}](tg://user?id={user_id}) حساب جديد: `{api_key[:-4]}****`")
         bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_main_buttons(user_id))
     else:
         bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons(user_id))
@@ -140,7 +134,6 @@ def handle_app_name_for_deletion(message, account_index):
     }
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
     if response.status_code == 202:
-        events.append(f"حذف [{message.from_user.first_name}](tg://user?id={user_id}) التطبيق: `{app_name[:-2]}**`")
         bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح.", reply_markup=create_main_buttons(user_id), parse_mode='Markdown')
     else:
         bot.send_message(message.chat.id, f"حدث خطأ أثناء محاولة حذف التطبيق `{app_name}`. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons(user_id), parse_mode='Markdown')
@@ -156,7 +149,6 @@ def create_app(call):
     }
     response = requests.post(f'{HEROKU_BASE_URL}/apps', headers=headers, json={"name": app_name})
     if response.status_code == 201:
-        events.append(f"أنشأ [{call.from_user.first_name}](tg://user?id={user_id}) تطبيق جديد: `{app_name}`")
         bot.edit_message_text(f"تم إنشاء التطبيق `{app_name}` بنجاح.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons(user_id), parse_mode='Markdown')
     else:
         bot.edit_message_text(f"حدث خطأ أثناء محاولة إنشاء التطبيق. يرجى المحاولة مرة أخرى.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons(user_id), parse_mode='Markdown')
@@ -183,21 +175,12 @@ def toggle_auto_delete_api(call):
     settings["auto_delete_api"] = not settings.get("auto_delete_api", False)
     bot.edit_message_text("إعدادات الوضع الآمن:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_safe_mode_settings_buttons(user_id))
 
-def show_events(call):
-    if events:
-        events_list = "\n".join(events)
-        bot.edit_message_text(f"الأحداث الأخيرة:\n{events_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
-    else:
-        bot.edit_message_text("لا توجد أحداث.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == "add_account":
         add_account(call)
     elif call.data == "list_accounts":
         list_accounts(call)
-    elif call.data == "show_events":
-        show_events(call)
     elif call.data == "settings":
         settings(call)
     elif call.data == "toggle_safe_mode":
