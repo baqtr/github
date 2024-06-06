@@ -1,140 +1,143 @@
 import os
-import json
-import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
+import telebot
+from telebot import types
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
+import pytz
 import requests
+from dotenv import load_dotenv
 
-# إعداد تسجيل الدخول
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+load_dotenv()
 
-# المتغيرات العالمية
-user_accounts = {}
+API_TOKEN = '7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20'
+bot = telebot.TeleBot(API_TOKEN)
+
+user_data = {}
 safe_mode = {}
-backup_file_path = 'backup.json'
 
-# الدوال الأساسية
+HEROKU_BASE_URL = 'https://api.heroku.com'
 
-def start(update: Update, context: CallbackContext):
-    keyboard = [
-        [InlineKeyboardButton("إضافة API", callback_data='add_api')],
-        [InlineKeyboardButton("حساباتك", callback_data='show_accounts')],
-        [InlineKeyboardButton("الوضع الآمن", callback_data='toggle_safe_mode')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text('مرحبًا! استخدم الأزرار التالية:', reply_markup=reply_markup)
+# وظيفة بدء التشغيل
+@bot.message_handler(commands=['start'])
+def start(message):
+    markup = types.InlineKeyboardMarkup()
+    add_api_button = types.InlineKeyboardButton("إضافة API", callback_data="add_api")
+    my_accounts_button = types.InlineKeyboardButton("حساباتك", callback_data="my_accounts")
+    safe_mode_button = types.InlineKeyboardButton(f"الوضع الآمن: {'مفعل ✅' if safe_mode.get(message.chat.id, False) else 'معطل ❌'}", callback_data="toggle_safe_mode")
+    markup.add(add_api_button, my_accounts_button, safe_mode_button)
+    bot.send_message(message.chat.id, "مرحبًا بك! اختر أحد الخيارات:", reply_markup=markup)
 
-def button(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    if query.data == 'add_api':
-        query.edit_message_text(text="الرجاء إرسال مفتاح API الخاص بـ Heroku.")
-    elif query.data == 'show_accounts':
-        show_accounts(update, context)
-    elif query.data == 'toggle_safe_mode':
-        toggle_safe_mode(update, context)
+# وظيفة إضافة API
+@bot.callback_query_handler(func=lambda call: call.data == "add_api")
+def add_api(call):
+    msg = bot.send_message(call.message.chat.id, "أرسل لي API الخاص بك:")
+    bot.register_next_step_handler(msg, save_api)
 
-def add_api(update: Update, context: CallbackContext):
-    api_key = update.message.text.strip()
-    user_id = update.message.from_user.id
+def save_api(message):
+    user_id = message.chat.id
+    api_key = message.text
+    if user_id not in user_data:
+        user_data[user_id] = []
+    user_data[user_id].append(api_key)
+    bot.send_message(message.chat.id, "تم حفظ API بنجاح.")
 
-    if user_id not in user_accounts:
-        user_accounts[user_id] = []
-
-    if api_key in [account['api_key'] for account in user_accounts[user_id]]:
-        update.message.reply_text("هذا الحساب مضاف مسبقًا.")
-    elif validate_heroku_api_key(api_key):
-        user_accounts[user_id].append({'api_key': api_key})
-        update.message.reply_text("تمت إضافة حساب Heroku بنجاح!")
-    else:
-        update.message.reply_text("مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.")
-
-def show_accounts(update: Update, context: CallbackContext):
-    user_id = update.callback_query.from_user.id
-    accounts = user_accounts.get(user_id, [])
-    if not accounts:
-        update.callback_query.edit_message_text("لا توجد حسابات لعرضها.")
-    else:
-        keyboard = [[InlineKeyboardButton(f"Account {i+1}", callback_data=f'account_{i}')] for i in range(len(accounts))]
-        keyboard.append([InlineKeyboardButton("رجوع", callback_data='back')])
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        update.callback_query.edit_message_text("حساباتك:", reply_markup=reply_markup)
-
-def account_details(update: Update, context: CallbackContext):
-    query = update.callback_query
-    user_id = query.from_user.id
-    account_index = int(query.data.split('_')[1])
-    account = user_accounts[user_id][account_index]
-
-    keyboard = [
-        [InlineKeyboardButton("حذف", callback_data=f'delete_account_{account_index}')],
-        [InlineKeyboardButton("إنشاء تطبيق", callback_data=f'create_app_{account_index}')],
-        [InlineKeyboardButton("رجوع", callback_data='show_accounts')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(f"API Key: {account['api_key']}\nاختر أحد الخيارات:", reply_markup=reply_markup)
-
-def delete_account(update: Update, context: CallbackContext):
-    query = update.callback_query
-    user_id = query.from_user.id
-    account_index = int(query.data.split('_')[2])
-
-    if safe_mode.get(user_id, False):
-        query.answer("لا يمكن حذف الحساب أثناء تفعيل الوضع الآمن.")
+# عرض الحسابات
+@bot.callback_query_handler(func=lambda call: call.data == "my_accounts")
+def my_accounts(call):
+    user_id = call.message.chat.id
+    if user_id not in user_data or not user_data[user_id]:
+        bot.send_message(user_id, "لا توجد حسابات مضافة.")
         return
 
-    del user_accounts[user_id][account_index]
-    query.edit_message_text("تم حذف الحساب بنجاح.")
-    show_accounts(update, context)
+    markup = types.InlineKeyboardMarkup()
+    for index, api_key in enumerate(user_data[user_id]):
+        account_button = types.InlineKeyboardButton(f"حساب {index+1}", callback_data=f"account_{index}")
+        markup.add(account_button)
+    back_button = types.InlineKeyboardButton("الرجوع", callback_data="go_back")
+    markup.add(back_button)
+    bot.send_message(user_id, "اختر حسابًا:", reply_markup=markup)
 
-def create_app(update: Update, context: CallbackContext):
-    query = update.callback_query
-    user_id = query.from_user.id
-    account_index = int(query.data.split('_')[2])
-    api_key = user_accounts[user_id][account_index]['api_key']
+# وظيفة التحكم في الحساب
+@bot.callback_query_handler(func=lambda call: call.data.startswith("account_"))
+def account_control(call):
+    user_id = call.message.chat.id
+    account_index = int(call.data.split("_")[1])
+    if user_id not in user_data or account_index >= len(user_data[user_id]):
+        bot.send_message(user_id, "حساب غير صالح.")
+        return
 
-    response = requests.post(
-        'https://api.heroku.com/apps',
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Accept': 'application/vnd.heroku+json; version=3'
-        }
-    )
+    api_key = user_data[user_id][account_index]
+    markup = types.InlineKeyboardMarkup()
+    create_app_button = types.InlineKeyboardButton("إنشاء تطبيق", callback_data=f"create_app_{account_index}")
+    delete_app_button = types.InlineKeyboardButton("حذف تطبيق", callback_data=f"delete_app_{account_index}")
+    back_button = types.InlineKeyboardButton("الرجوع", callback_data="my_accounts")
+    markup.add(create_app_button, delete_app_button, back_button)
+    bot.send_message(user_id, "اختر إجراء:", reply_markup=markup)
 
+# وظيفة إنشاء تطبيق
+@bot.callback_query_handler(func=lambda call: call.data.startswith("create_app_"))
+def create_app(call):
+    account_index = int(call.data.split("_")[2])
+    msg = bot.send_message(call.message.chat.id, "أدخل اسم التطبيق:")
+    bot.register_next_step_handler(msg, lambda m: handle_create_app(m, account_index))
+
+def handle_create_app(message, account_index):
+    user_id = message.chat.id
+    app_name = message.text
+    api_key = user_data[user_id][account_index]
+
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/vnd.heroku+json; version=3',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'name': app_name
+    }
+    response = requests.post(f'{HEROKU_BASE_URL}/apps', headers=headers, json=data)
     if response.status_code == 201:
-        app_info = response.json()
-        query.edit_message_text(f"تم إنشاء التطبيق بنجاح!\nاسم التطبيق: {app_info['name']}")
+        bot.send_message(user_id, "تم إنشاء التطبيق بنجاح.")
     else:
-        query.edit_message_text("فشل في إنشاء التطبيق.")
+        bot.send_message(user_id, "فشل في إنشاء التطبيق.")
 
-def toggle_safe_mode(update: Update, context: CallbackContext):
-    user_id = update.callback_query.from_user.id
-    safe_mode[user_id] = not safe_mode.get(user_id, False)
-    status = "مفعل ✅" if safe_mode[user_id] else "معطل ❌"
-    update.callback_query.edit_message_text(f"الوضع الآمن: {status}")
+# وظيفة حذف تطبيق
+@bot.callback_query_handler(func=lambda call: call.data.startswith("delete_app_"))
+def delete_app(call):
+    account_index = int(call.data.split("_")[2])
+    msg = bot.send_message(call.message.chat.id, "أدخل اسم التطبيق الذي تريد حذفه:")
+    bot.register_next_step_handler(msg, lambda m: handle_delete_app(m, account_index))
 
-def validate_heroku_api_key(api_key):
-    response = requests.get('https://api.heroku.com/account', headers={
+def handle_delete_app(message, account_index):
+    user_id = message.chat.id
+    app_name = message.text
+    if safe_mode.get(user_id, False):
+        bot.send_message(user_id, "لا يمكن حذف التطبيق بسبب تفعيل الوضع الآمن.")
+        return
+
+    api_key = user_data[user_id][account_index]
+    headers = {
         'Authorization': f'Bearer {api_key}',
         'Accept': 'application/vnd.heroku+json; version=3'
-    })
-    return response.status_code == 200
+    }
+    response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
+    if response.status_code == 202:
+        bot.send_message(user_id, "تم حذف التطبيق بنجاح.")
+    else:
+        bot.send_message(user_id, "فشل في حذف التطبيق.")
 
-def main():
-    TOKEN = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
-    updater = Updater(TOKEN, use_context=True)
+# وظيفة تفعيل وتعطيل الوضع الآمن
+@bot.callback_query_handler(func=lambda call: call.data == "toggle_safe_mode")
+def toggle_safe_mode(call):
+    user_id = call.message.chat.id
+    safe_mode[user_id] = not safe_mode.get(user_id, False)
+    status = 'مفعل ✅' if safe_mode[user_id] else 'معطل ❌'
+    bot.send_message(user_id, f"تم تغيير وضع الآمن إلى: {status}")
+    start(call.message)
 
-    dp = updater.dispatcher
+# وظيفة الرجوع
+@bot.callback_query_handler(func=lambda call: call.data == "go_back")
+def go_back(call):
+    start(call.message)
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(button, pattern='^((?!account_).)*$'))
-    dp.add_handler(CallbackQueryHandler(account_details, pattern='^account_'))
-    dp.add_handler(CallbackQueryHandler(delete_account, pattern='^delete_account_'))
-    dp.add_handler(CallbackQueryHandler(create_app, pattern='^create_app_'))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, add_api))
-
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
+# بدء تشغيل البوت
+bot.polling()
