@@ -40,12 +40,14 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
     button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
     button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
+    button5 = telebot.types.InlineKeyboardButton("الإعدادات ⚙", callback_data="settings")
     safe_mode_status = "مفعل ✅" if safe_mode.get(user_id, False) else "معطل ❌"
-    button5 = telebot.types.InlineKeyboardButton(f"الوضع الآمن: {safe_mode_status}", callback_data="toggle_safe_mode")
+    button6 = telebot.types.InlineKeyboardButton(f"الوضع الآمن: {safe_mode_status}", callback_data="toggle_safe_mode")
     markup.add(button1, button2)
     markup.add(button3)
     markup.add(button4)
     markup.add(button5)
+    markup.add(button6)
     return markup
 
 def create_github_control_buttons():
@@ -199,8 +201,6 @@ def callback_query(call):
         add_account(call)
     elif call.data == "list_accounts":
         list_accounts(call)
-    elif call.data == "show_events":
-        show_events(call)
     elif call.data.startswith("select_account_"):
         account_index = int(call.data.split("_")[-1])
         bot.edit_message_text(f"إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
@@ -217,7 +217,7 @@ def callback_query(call):
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back":
-        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
+        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons(call.from_user.id))
     elif call.data == "github_section":
         bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
     elif call.data == "upload_file":
@@ -230,8 +230,14 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
-        elif call.data == "settings":
+    elif call.data == "settings":
         settings(call)
+    elif call.data == "toggle_safe_mode":
+        toggle_safe_mode(call)
+    elif call.data == "toggle_delete_prevention":
+        toggle_delete_prevention(call)
+    elif call.data == "toggle_auto_delete_api":
+        toggle_auto_delete_api(call)
         #دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
