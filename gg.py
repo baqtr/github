@@ -34,7 +34,7 @@ user_accounts = {}
 events = []
 
 # دالة لإنشاء الأزرار وتخصيصها
-def create_main_buttons():
+def create_main_buttons(user_id):
     markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
