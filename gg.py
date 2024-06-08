@@ -59,6 +59,7 @@ def add_user_account(user_id, accounts):
     conn.commit()
     cur.close()
     conn.close()
+    user_accounts = {}
 
 # دالة لاسترجاع حسابات المستخدم
 def get_user_accounts(user_id):
@@ -68,6 +69,7 @@ def get_user_accounts(user_id):
     result = cur.fetchone()
     cur.close()
     conn.close()
+    user_accounts = {}
     return result[0] if result else []
 
 # دالة لإضافة حدث جديد
