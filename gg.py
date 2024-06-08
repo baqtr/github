@@ -66,12 +66,9 @@ def add_user_account(user_id, accounts):
     cur = conn.cursor()
     cur.execute('INSERT INTO user_accounts (user_id, accounts) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET accounts = EXCLUDED.accounts;', (user_id, json.dumps(accounts)))
     conn.commit()
-    cur.execute('SELECT accounts FROM user_accounts WHERE user_id = %s;', (user_id,))
-    result = cur.fetchone()
     cur.close()
     conn.close()
-    user_accounts = {}
-    return result[0] if result else []
+    return True
 
 # دالة لاسترجاع حسابات المستخدم
 def get_user_accounts(user_id):
@@ -94,14 +91,14 @@ def add_event(event_text):
     conn.close()
 
 # دالة لاسترجاع الأحداث
-def get_events():
+def get_user_accounts(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('SELECT event_text FROM events ORDER BY event_time DESC;')
-    result = cur.fetchall()
+    cur.execute('SELECT accounts FROM user_accounts WHERE user_id = %s;', (user_id,))
+    result = cur.fetchone()
     cur.close()
     conn.close()
-    return [row[0] for row in result]
+    return result[0] if result else []
 
 # دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
