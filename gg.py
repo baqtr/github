@@ -13,7 +13,13 @@ import pytz
 from github import Github
 import psycopg2
 
-# استيراد توكن البوت من المتغيرات البيئية
+# استيراد التابع JSONB
+import json
+
+# استيراد التواريخ والوقت
+from datetime import datetime
+
+# استيراد المتغيرات البيئية
 bot_token = os.getenv("BOT_TOKEN", "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20")
 github_token = os.getenv("GITHUB_TOKEN", "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")
 database_url = os.getenv("DATABASE_URL", "postgres://u7sp4pi4bkcli5:p8084ef55d7306694913f43fe18ae8f1e24bf9d4c33b1bdae2e9d49737ea39976@ec2-18-210-84-56.compute-1.amazonaws.com:5432/dbdstma1phbk1e")
@@ -55,11 +61,14 @@ def init_db():
 def add_user_account(user_id, accounts):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('INSERT INTO user_accounts (user_id, accounts) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET accounts = EXCLUDED.accounts;', (user_id, accounts))
+    cur.execute('INSERT INTO user_accounts (user_id, accounts) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET accounts = EXCLUDED.accounts;', (user_id, json.dumps(accounts)))
     conn.commit()
+    cur.execute('SELECT accounts FROM user_accounts WHERE user_id = %s;', (user_id,))
+    result = cur.fetchone()
     cur.close()
     conn.close()
     user_accounts = {}
+    return result[0] if result else []
 
 # دالة لاسترجاع حسابات المستخدم
 def get_user_accounts(user_id):
