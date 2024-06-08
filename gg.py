@@ -34,6 +34,9 @@ HEROKU_BASE_URL = 'https://api.heroku.com'
 self_deleting_apps = {}
 g = Github(github_token)
 
+events = []
+user_accounts = {}
+
 # دالة للاتصال بقاعدة البيانات
 def get_db_connection():
     return psycopg2.connect(database_url)
