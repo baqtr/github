@@ -14,7 +14,7 @@ from github import Github
 import psycopg2
 
 # استيراد توكن البوت من المتغيرات البيئية
-bot_token = "6444148337:AAFANHnwUPQXnq_SLHnqhsuH9WnSxALtUvo"
+bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
 github_token = "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"
 database_url = "DATABASE_URL"
 
