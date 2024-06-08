@@ -118,7 +118,7 @@ def list_events(message):
     if events:
         bot.reply_to(message, "\n".join(events))
     else:
-        bot.reply_to(message، "لا توجد أحداث مسجلة.")
+        bot.reply_to(message, "لا توجد أحداث مسجلة.")
 
 # بدء الاستماع للرسائل
 bot.polling()
