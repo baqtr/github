@@ -124,7 +124,7 @@ def validate_heroku_api_key(api_key):
         'Authorization': f'Bearer {api_key}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
-    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
+    response = requests.get(f'{HEROKU_BASE_URL/apps', headers=headers)
     return response.status_code == 200
 
 # عرض حسابات المستخدم
@@ -231,32 +231,6 @@ def remaining_time(call):
         bot.edit_message_text("\n".join(remaining_times), chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     else:
         bot.edit_message_text("لا توجد تطبيقات معدة للحذف الذاتي.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
-
-# دالة لتنفيذ الحذف الذاتي بشكل دوري
-def auto_delete_apps():
-    while True:
-        now = datetime.now(pytz.timezone('Asia/Baghdad'))
-        apps = load_self_deleting_apps()
-        for app_name, data in apps.items():
-            end_time = data['start_time'] + timedelta(minutes=data['minutes'])
-            if now >= end_time:
-                # حدد الحساب الذي يجب استخدامه لحذف التطبيق
-                cursor.execute('SELECT user_id, api_keys FROM accounts WHERE %s = ANY(api_keys);', (app_name,))
-                result = cursor.fetchone()
-                if result:
-                    user_id, api_keys = result
-                    api_key = api_keys[0]  # باستخدام أول مفتاح API لحذف التطبيق
-                    headers = {
-                        'Authorization': f'Bearer {api_key}',
-                        'Accept': 'application/vnd.heroku+json; version=3'
-                    }
-                    response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
-                    if response.status_code == 202:
-                        remove_self_deleting_app(app_name)
-        time.sleep(60)
-
-# بدء خيط الحذف الذاتي
-threading.Thread(target=auto_delete_apps, daemon=True).start()
 
 # دالة للاستجابة للضغط على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
