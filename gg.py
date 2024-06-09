@@ -23,6 +23,9 @@ HEROKU_BASE_URL = 'https://api.heroku.com'
 g = Github(github_token)
 self_deleting_apps = {}
 
+user_accounts = {}  # تعريف متغير user_accounts
+events = []
+
 # تهيئة قاعدة البيانات
 def init_db():
     conn = get_db_connection()
