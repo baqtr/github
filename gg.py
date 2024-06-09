@@ -44,8 +44,13 @@ def main_menu():
     markup.add(add_button, view_button)
     return markup
 
+# عرض القائمة الرئيسية في بداية الدردشة
+@bot.message_handler(commands=['start'])
+def send_main_menu(message):
+    bot.send_message(message.chat.id, "مرحبًا بك!", reply_markup=main_menu())
+
 # إضافة ملصق جديد
-@bot.message_handler(func=lambda message: message.text == 'إضافة ملصق')
+@bot.message_handler(content_types=['text'], func=lambda message: message.text == 'إضافة ملصق')
 def add_sticker(message):
     bot.reply_to(message, "قم بإرسال الملصق.")
     bot.register_next_step_handler(message, process_new_sticker)
@@ -57,7 +62,7 @@ def process_new_sticker(message):
     bot.reply_to(message, "تم حفظ الملصق بنجاح.")
 
 # عرض الملصقات المخزنة
-@bot.message_handler(func=lambda message: message.text == 'عرض الملصقات')
+@bot.message_handler(content_types=['text'], func=lambda message: message.text == 'عرض الملصقات')
 def show_stickers(message):
     stickers = load_stickers()
     if stickers:
