@@ -1,104 +1,85 @@
 import os
 import telebot
 import psycopg2
-from telebot import types
+from urllib.parse import urlparse
 
-# استيراد توكن البوت من المتغيرات البيئية
+# إعداد توكن البوت ومعلومات قاعدة البيانات
 bot_token = "7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI"
 database_url = os.getenv("DATABASE_URL", "postgres://u7sp4pi4bkcli5:p8084ef55d7306694913f43fe18ae8f1e24bf9d4c33b1bdae2e9d49737ea39976@ec2-18-210-84-56.compute-1.amazonaws.com:5432/dbdstma1phbk1e")
 
-# إنشاء كائن البوت
+
 bot = telebot.TeleBot(bot_token)
 
 # إعداد قاعدة البيانات
-connection = psycopg2.connect(database_url)
-cursor = connection.cursor()
+url = urlparse(DATABASE_URL)
+db_conn = psycopg2.connect(
+    database=url.path[1:],
+    user=url.username,
+    password=url.password,
+    host=url.hostname,
+    port=url.port
+)
+db_cursor = db_conn.cursor()
 
-# دالة لإنشاء الجداول إذا لم تكن موجودة
-def create_tables():
-    cursor.execute('''CREATE TABLE IF NOT EXISTS accounts (
-                        user_id BIGINT PRIMARY KEY,
-                        username TEXT
-                      );''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS apps (
-                        app_name TEXT PRIMARY KEY,
-                        user_id BIGINT,
-                        FOREIGN KEY (user_id) REFERENCES accounts(user_id)
-                      );''')
-    connection.commit()
+db_cursor.execute("""
+CREATE TABLE IF NOT EXISTS stickers (
+    user_id BIGINT,
+    file_id TEXT,
+    set_name TEXT
+)
+""")
+db_conn.commit()
 
-create_tables()
+# إنشاء لوحة المفاتيح
+def create_keyboard(buttons):
+    markup = telebot.types.InlineKeyboardMarkup()
+    for button_row in buttons:
+        markup.row(*[telebot.types.InlineKeyboardButton(text, callback_data=data) for text, data in button_row])
+    return markup
 
-# دالة لحفظ الحساب في قاعدة البيانات
-def save_account(user_id, username):
-    cursor.execute('''INSERT INTO accounts (user_id, username)
-                      VALUES (%s, %s)
-                      ON CONFLICT (user_id) DO NOTHING;''', (user_id, username))
-    connection.commit()
+# أمر البدء
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(
+        message.chat.id,
+        "أهلاً بك في بوت تخزين الملصقات! استخدم الأزرار أدناه لإضافة وعرض الملصقات.",
+        reply_markup=create_keyboard([
+            [("إضافة ملصق ➕", "add_sticker")],
+            [("عرض ملصقاتك 📂", "list_stickers")]
+        ])
+    )
 
-# دالة لحفظ التطبيق في قاعدة البيانات
-def save_app(app_name, user_id):
-    cursor.execute('''INSERT INTO apps (app_name, user_id)
-                      VALUES (%s, %s)
-                      ON CONFLICT (app_name) DO NOTHING;''', (app_name, user_id))
-    connection.commit()
+# إضافة ملصق
+@bot.callback_query_handler(func=lambda call: call.data == "add_sticker")
+def add_sticker(call):
+    msg = bot.edit_message_text("أرسل الملصق الذي تريد تخزينه:", chat_id=call.message.chat.id, message_id=call.message.message_id)
+    bot.register_next_step_handler(msg, receive_sticker)
 
-# دالة لحذف التطبيق من قاعدة البيانات
-def delete_app(app_name):
-    cursor.execute('''DELETE FROM apps WHERE app_name = %s;''', (app_name,))
-    connection.commit()
+def receive_sticker(message):
+    if message.sticker:
+        user_id = message.from_user.id
+        file_id = message.sticker.file_id
+        set_name = message.sticker.set_name if message.sticker.set_name else "default"
 
-# دالة لتحميل التطبيقات للمستخدم
-def load_apps(user_id):
-    cursor.execute('SELECT app_name FROM apps WHERE user_id = %s;', (user_id,))
-    return cursor.fetchall()
+        db_cursor.execute("INSERT INTO stickers (user_id, file_id, set_name) VALUES (%s, %s, %s)", (user_id, file_id, set_name))
+        db_conn.commit()
 
-# عرض التطبيقات المخزنة للمستخدم
-@bot.message_handler(func=lambda message: message.text == 'عرض التطبيقات')
-def show_apps(message):
-    user_id = message.from_user.id
-    apps = load_apps(user_id)
-    if apps:
-        app_list = '\n'.join([app[0] for app in apps])
-        bot.reply_to(message, f"التطبيقات المخزنة الخاصة بك:\n{app_list}")
+        bot.send_message(message.chat.id, "تم تخزين الملصق بنجاح!")
     else:
-        bot.reply_to(message, "لم تقم بتخزين أي تطبيقات حتى الآن.")
+        bot.send_message(message.chat.id, "الرجاء إرسال ملصق صحيح.")
 
-# إضافة تطبيق جديد
-@bot.message_handler(func=lambda message: message.text == 'إضافة تطبيق')
-def add_app(message):
-    bot.reply_to(message, "أرسل اسم التطبيق الذي تريد إضافته.")
-    bot.register_next_step_handler(message, process_new_app)
+# عرض الملصقات
+@bot.callback_query_handler(func=lambda call: call.data == "list_stickers")
+def list_stickers(call):
+    user_id = call.from_user.id
+    db_cursor.execute("SELECT file_id, set_name FROM stickers WHERE user_id = %s", (user_id,))
+    stickers = db_cursor.fetchall()
 
-def process_new_app(message):
-    app_name = message.text
-    user_id = message.from_user.id
-    save_app(app_name, user_id)
-    bot.reply_to(message, f"تمت إضافة التطبيق {app_name} بنجاح.")
+    if stickers:
+        for sticker in stickers:
+            bot.send_sticker(call.message.chat.id, sticker[0])
+    else:
+        bot.send_message(call.message.chat.id, "لم تقم بتخزين أي ملصقات بعد.")
 
-# حذف تطبيق
-@bot.message_handler(func=lambda message: message.text == 'حذف تطبيق')
-def remove_app(message):
-    bot.reply_to(message, "أرسل اسم التطبيق الذي تريد حذفه.")
-    bot.register_next_step_handler(message, process_remove_app)
-
-def process_remove_app(message):
-    app_name = message.text
-    delete_app(app_name)
-    bot.reply_to(message, f"تم حذف التطبيق {app_name} بنجاح.")
-
-# حساب المستخدم
-@bot.message_handler(func=lambda message: message.text == 'حسابي')
-def my_account(message):
-    user_id = message.from_user.id
-    username = message.from_user.username
-    save_account(user_id, username)
-    bot.reply_to(message, f"تم تسجيل حسابك بنجاح، {username}.")
-
-# التعامل مع الرسائل غير المعروفة
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    bot.reply_to(message, "لا أفهم رسالتك. يرجى استخدام الأزرار.")
-
-# تشغيل البوت
+# بدء البوت
 bot.polling()
