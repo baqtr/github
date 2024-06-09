@@ -12,34 +12,16 @@ from datetime import datetime, timedelta
 import pytz
 from github import Github
 import psycopg2
-
-# استيراد التابع JSONB
 import json
 
-# استيراد التواريخ والوقت
-from datetime import datetime
-
-# استيراد المتغيرات البيئية
 bot_token = os.getenv("BOT_TOKEN", "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20")
 github_token = os.getenv("GITHUB_TOKEN", "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")
 database_url = os.getenv("DATABASE_URL", "postgres://u7sp4pi4bkcli5:p8084ef55d7306694913f43fe18ae8f1e24bf9d4c33b1bdae2e9d49737ea39976@ec2-18-210-84-56.compute-1.amazonaws.com:5432/dbdstma1phbk1e")
 
-# إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
-
-# الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
-
-# قائمة التطبيقات المجدولة للحذف الذاتي
-self_deleting_apps = {}
 g = Github(github_token)
-
-events = []
-user_accounts = {}
-
-# دالة للاتصال بقاعدة البيانات
-def get_db_connection():
-    return psycopg2.connect(database_url)
+self_deleting_apps = {}
 
 # تهيئة قاعدة البيانات
 def init_db():
@@ -60,6 +42,10 @@ def init_db():
     cur.close()
     conn.close()
 
+# دالة للاتصال بقاعدة البيانات
+def get_db_connection():
+    return psycopg2.connect(database_url)
+
 # دالة لإضافة حساب مستخدم جديد
 def add_user_account(user_id, accounts):
     conn = get_db_connection()
@@ -78,7 +64,6 @@ def get_user_accounts(user_id):
     result = cur.fetchone()
     cur.close()
     conn.close()
-    user_accounts = {}
     return result[0] if result else []
 
 # دالة لإضافة حدث جديد
@@ -91,14 +76,27 @@ def add_event(event_text):
     conn.close()
 
 # دالة لاسترجاع الأحداث
-def get_user_accounts(user_id):
+def get_events():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('SELECT accounts FROM user_accounts WHERE user_id = %s;', (user_id,))
-    result = cur.fetchone()
+    cur.execute('SELECT event_text FROM events ORDER BY event_time DESC;')
+    result = cur.fetchall()
     cur.close()
     conn.close()
-    return result[0] if result else []
+    return [row[0] for row in result]
+
+# تهيئة البيانات من قاعدة البيانات
+def initialize_data():
+    global user_accounts, events
+    user_accounts = {}
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('SELECT user_id, accounts FROM user_accounts;')
+    for row in cur.fetchall():
+        user_accounts[row[0]] = json.loads(row[1])
+    cur.close()
+    conn.close()
+    events = get_events()
 
 # دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
