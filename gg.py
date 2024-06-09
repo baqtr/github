@@ -18,92 +18,82 @@ cursor = connection.cursor()
 def create_tables():
     cursor.execute('''CREATE TABLE IF NOT EXISTS accounts (
                         user_id BIGINT PRIMARY KEY,
-                        api_key TEXT
+                        username TEXT
                       );''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS self_deleting_apps (
-                        app_name TEXT,
-                        api_key TEXT,
-                        minutes INTEGER,
-                        start_time TIMESTAMPTZ,
-                        PRIMARY KEY (app_name, api_key)
+    cursor.execute('''CREATE TABLE IF NOT EXISTS apps (
+                        app_name TEXT PRIMARY KEY,
+                        user_id BIGINT,
+                        FOREIGN KEY (user_id) REFERENCES accounts(user_id)
                       );''')
     connection.commit()
 
 create_tables()
 
-# دالة لحفظ البيانات إلى قاعدة البيانات
-def save_account(user_id, api_key):
-    cursor.execute('''INSERT INTO accounts (user_id, api_key)
+# دالة لحفظ الحساب في قاعدة البيانات
+def save_account(user_id, username):
+    cursor.execute('''INSERT INTO accounts (user_id, username)
                       VALUES (%s, %s)
-                      ON CONFLICT (user_id) DO UPDATE
-                      SET api_key = excluded.api_key;''', (user_id, api_key))
+                      ON CONFLICT (user_id) DO NOTHING;''', (user_id, username))
     connection.commit()
 
-# دالة لتحميل المفتاح للمستخدم
-def load_account(user_id):
-    cursor.execute('SELECT api_key FROM accounts WHERE user_id = %s;', (user_id,))
-    result = cursor.fetchone()
-    return result[0] if result else None
-
-# دالة لحفظ تطبيق المستخدم
-def save_self_deleting_app(app_name, api_key, minutes):
-    cursor.execute('''INSERT INTO self_deleting_apps (app_name, api_key, minutes, start_time)
-                      VALUES (%s, %s, %s, now());''', (app_name, api_key, minutes))
+# دالة لحفظ التطبيق في قاعدة البيانات
+def save_app(app_name, user_id):
+    cursor.execute('''INSERT INTO apps (app_name, user_id)
+                      VALUES (%s, %s)
+                      ON CONFLICT (app_name) DO NOTHING;''', (app_name, user_id))
     connection.commit()
 
-# دالة لتحميل تطبيقات المستخدم
-def load_self_deleting_apps(api_key):
-    cursor.execute('SELECT app_name, minutes, start_time FROM self_deleting_apps WHERE api_key = %s;', (api_key,))
+# دالة لحذف التطبيق من قاعدة البيانات
+def delete_app(app_name):
+    cursor.execute('''DELETE FROM apps WHERE app_name = %s;''', (app_name,))
+    connection.commit()
+
+# دالة لتحميل التطبيقات للمستخدم
+def load_apps(user_id):
+    cursor.execute('SELECT app_name FROM apps WHERE user_id = %s;', (user_id,))
     return cursor.fetchall()
 
-# إنشاء قائمة الأزرار
-def create_keyboard():
-    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    count_button = types.KeyboardButton('عدد المفاتيح')
-    show_button = types.KeyboardButton('عرض المفاتيح')
-    account_button = types.KeyboardButton('عرض حسابي')
-    keyboard.add(count_button, show_button, account_button)
-    return keyboard
-
-# عرض عدد المفاتيح المخزنة
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "مرحبًا بك! اختر ما ترغب في القيام به:", reply_markup=create_keyboard())
-
-# عرض عدد المفاتيح المخزنة
-@bot.message_handler(func=lambda message: message.text == 'عدد المفاتيح')
-def count_keys(message):
+# عرض التطبيقات المخزنة للمستخدم
+@bot.message_handler(func=lambda message: message.text == 'عرض التطبيقات')
+def show_apps(message):
     user_id = message.from_user.id
-    api_key = load_account(user_id)
-    if api_key:
-        bot.reply_to(message, "لديك مفتاح API مخزن.")
+    apps = load_apps(user_id)
+    if apps:
+        app_list = '\n'.join([app[0] for app in apps])
+        bot.reply_to(message, f"التطبيقات المخزنة الخاصة بك:\n{app_list}")
     else:
-        bot.reply_to(message, "لم تقم بتخزين أي مفتاح API حتى الآن.")
+        bot.reply_to(message, "لم تقم بتخزين أي تطبيقات حتى الآن.")
 
-# عرض المفاتيح المخزنة
-@bot.message_handler(func=lambda message: message.text == 'عرض المفاتيح')
-def show_keys(message):
-    user_id = message.from_user.id
-    api_key = load_account(user_id)
-    if api_key:
-        apps = load_self_deleting_apps(api_key)
-        if apps:
-            app_list = '\n'.join([f"{app[0]} - {app[1]} دقائق" for app in apps])
-            bot.reply_to(message, f"تطبيقاتك المخزنة:\n{app_list}")
-        else:
-            bot.reply_to(message, "لم تقم بتخزين أي تطبيقات حتى الآن.")
-    else:
-        bot.reply_to(message, "لم تقم بتخزين أي مفتاح API حتى الآن.")
+# إضافة تطبيق جديد
+@bot.message_handler(func=lambda message: message.text == 'إضافة تطبيق')
+def add_app(message):
+    bot.reply_to(message, "أرسل اسم التطبيق الذي تريد إضافته.")
+    bot.register_next_step_handler(message, process_new_app)
 
-# عرض حساب المستخدم وتطبيقاته
-@bot.message_handler(func=lambda message: message.text == 'عرض حسابي')
-def show_account(message):
+def process_new_app(message):
+    app_name = message.text
     user_id = message.from_user.id
-    api_key = load_account(user_id)
-    if api_key:
-        bot.reply_to(message, f"مفتاح API المخزن: {api_key}")
-    else:
-        bot.reply_to(message, "لم تقم بتخزين أي مفتاح API حتى الآن.")
+    save_app(app_name, user_id)
+    bot.reply_to(message, f"تمت إضافة التطبيق {app_name} بنجاح.")
+
+# حذف تطبيق
+@bot.message_handler(func=lambda message: message.text == 'حذف تطبيق')
+def remove_app(message):
+    bot.reply_to(message, "أرسل اسم التطبيق الذي تريد حذفه.")
+    bot.register_next_step_handler(message, process_remove_app)
+
+def process_remove_app(message):
+    app_name = message.text
+    delete_app(app_name)
+    bot.reply_to(message, f"تم حذف التطبيق {app_name} بنجاح.")
+
+# حساب المستخدم
+@bot.message_handler(func=lambda message: message.text == 'حسابي')
+def my_account(message):
+    user_id = message.from_user.id
+    username = message.from_user.username
+    save_account(user_id, username)
+    bot.reply_to(message, f"تم تسجيل حسابك بنجاح، {username}.")
 
 # التعامل مع الرسائل غير المعروفة
 @bot.message_handler(func=lambda message: True)
