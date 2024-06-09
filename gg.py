@@ -18,12 +18,14 @@ cursor = connection.cursor()
 def create_tables():
     cursor.execute('''CREATE TABLE IF NOT EXISTS accounts (
                         user_id BIGINT PRIMARY KEY,
-                        api_keys TEXT[]
+                        api_key TEXT
                       );''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS self_deleting_apps (
-                        app_name TEXT PRIMARY KEY,
+                        app_name TEXT,
+                        api_key TEXT,
                         minutes INTEGER,
-                        start_time TIMESTAMPTZ
+                        start_time TIMESTAMPTZ,
+                        PRIMARY KEY (app_name, api_key)
                       );''')
     connection.commit()
 
@@ -31,27 +33,27 @@ create_tables()
 
 # دالة لحفظ البيانات إلى قاعدة البيانات
 def save_account(user_id, api_key):
-    cursor.execute('''INSERT INTO accounts (user_id, api_keys)
-                      VALUES (%s, ARRAY[%s])
+    cursor.execute('''INSERT INTO accounts (user_id, api_key)
+                      VALUES (%s, %s)
                       ON CONFLICT (user_id) DO UPDATE
-                      SET api_keys = array_append(accounts.api_keys, %s);''', (user_id, api_key, api_key))
+                      SET api_key = excluded.api_key;''', (user_id, api_key))
     connection.commit()
 
-# دالة لتحميل المفاتيح للمستخدم
-def load_accounts(user_id):
-    cursor.execute('SELECT api_keys FROM accounts WHERE user_id = %s;', (user_id,))
+# دالة لتحميل المفتاح للمستخدم
+def load_account(user_id):
+    cursor.execute('SELECT api_key FROM accounts WHERE user_id = %s;', (user_id,))
     result = cursor.fetchone()
-    return result[0] if result else []
+    return result[0] if result else None
 
-# دالة لحفظ تطبيقات المستخدم
-def save_self_deleting_app(app_name, minutes):
-    cursor.execute('''INSERT INTO self_deleting_apps (app_name, minutes, start_time)
-                      VALUES (%s, %s, %s);''', (app_name, minutes, datetime.now(pytz.timezone('Asia/Baghdad'))))
+# دالة لحفظ تطبيق المستخدم
+def save_self_deleting_app(app_name, api_key, minutes):
+    cursor.execute('''INSERT INTO self_deleting_apps (app_name, api_key, minutes, start_time)
+                      VALUES (%s, %s, %s, now());''', (app_name, api_key, minutes))
     connection.commit()
 
 # دالة لتحميل تطبيقات المستخدم
-def load_self_deleting_apps(user_id):
-    cursor.execute('SELECT app_name, minutes, start_time FROM self_deleting_apps WHERE user_id = %s;', (user_id,))
+def load_self_deleting_apps(api_key):
+    cursor.execute('SELECT app_name, minutes, start_time FROM self_deleting_apps WHERE api_key = %s;', (api_key,))
     return cursor.fetchall()
 
 # إنشاء قائمة الأزرار
@@ -72,31 +74,36 @@ def start(message):
 @bot.message_handler(func=lambda message: message.text == 'عدد المفاتيح')
 def count_keys(message):
     user_id = message.from_user.id
-    keys = load_accounts(user_id)
-    count = len(keys)
-    bot.reply_to(message, f"لديك {count} مفتاح API مخزن.")
+    api_key = load_account(user_id)
+    if api_key:
+        bot.reply_to(message, "لديك مفتاح API مخزن.")
+    else:
+        bot.reply_to(message, "لم تقم بتخزين أي مفتاح API حتى الآن.")
 
 # عرض المفاتيح المخزنة
 @bot.message_handler(func=lambda message: message.text == 'عرض المفاتيح')
 def show_keys(message):
     user_id = message.from_user.id
-    keys = load_accounts(user_id)
-    if keys:
-        key_list = '\n'.join(keys)
-        bot.reply_to(message, f"مفاتيح API المخزنة الخاصة بك:\n{key_list}")
+    api_key = load_account(user_id)
+    if api_key:
+        apps = load_self_deleting_apps(api_key)
+        if apps:
+            app_list = '\n'.join([f"{app[0]} - {app[1]} دقائق" for app in apps])
+            bot.reply_to(message, f"تطبيقاتك المخزنة:\n{app_list}")
+        else:
+            bot.reply_to(message, "لم تقم بتخزين أي تطبيقات حتى الآن.")
     else:
-        bot.reply_to(message, "لم تقم بتخزين أي مفاتيح API حتى الآن.")
+        bot.reply_to(message, "لم تقم بتخزين أي مفتاح API حتى الآن.")
 
 # عرض حساب المستخدم وتطبيقاته
 @bot.message_handler(func=lambda message: message.text == 'عرض حسابي')
 def show_account(message):
     user_id = message.from_user.id
-    apps = load_self_deleting_apps(user_id)
-    if apps:
-        app_list = '\n'.join([f"{app[0]} - {app[1]} دقائق" for app in apps])
-        bot.reply_to(message, f"تطبيقاتك المخزنة:\n{app_list}")
+    api_key = load_account(user_id)
+    if api_key:
+        bot.reply_to(message, f"مفتاح API المخزن: {api_key}")
     else:
-        bot.reply_to(message, "لم تقم بتخزين أي تطبيقات حتى الآن.")
+        bot.reply_to(message, "لم تقم بتخزين أي مفتاح API حتى الآن.")
 
 # التعامل مع الرسائل غير المعروفة
 @bot.message_handler(func=lambda message: True)
