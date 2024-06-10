@@ -109,13 +109,13 @@ def send_welcome(message):
 # إضافة حساب جديد
 @bot.message_handler(func=lambda message: message.text == 'إضافة حساب')
 def add_account(message):
-    msg = bot.reply_to(message, "قم بإرسال اسم الحساب.")
-    bot.register_next_step_handler(msg, process_account_name)
+    bot.reply_to(message, "قم بإرسال اسم الحساب.")
+    bot.register_next_step_handler(message, process_account_name)
 
 def process_account_name(message):
     account_name = message.text
-    msg = bot.reply_to(message, "الآن قم بإرسال API Key.")
-    bot.register_next_step_handler(msg, process_api_key, account_name)
+    bot.reply_to(message, "الآن قم بإرسال API Key.")
+    bot.register_next_step_handler(message, process_api_key, account_name)
 
 def process_api_key(message, account_name):
     api_key = message.text
@@ -133,19 +133,16 @@ def process_api_key(message, account_name):
 # عرض الحسابات المضافة
 @bot.message_handler(func=lambda message: message.text == 'حساباتك')
 def view_accounts(message):
-    try:
-        accounts = load_accounts(message.from_user.id)
-        if accounts:
-            for account in accounts:
-                markup = types.InlineKeyboardMarkup()
-                view_apps_button = types.InlineKeyboardButton('عرض التطبيقات', callback_data=f"view_apps:{account[0]}")
-                delete_app_button = types.InlineKeyboardButton('حذف تطبيق', callback_data=f"delete_app:{account[0]}")
-                markup.add(view_apps_button, delete_app_button)
-                bot.send_message(message.chat.id, f"الحساب: {account[1]}", reply_markup=markup)
-        else:
-            bot.reply_to(message, "لم تقم بإضافة أي حسابات بعد.")
-    except Exception as e:
-        bot.send_message(message.chat.id, f"حدث خطأ أثناء جلب الحسابات: {e}")
+    accounts = load_accounts(message.from_user.id)
+    if accounts:
+        for account in accounts:
+            markup = types.InlineKeyboardMarkup()
+            view_apps_button = types.InlineKeyboardButton('عرض التطبيقات', callback_data=f"view_apps:{account[0]}")
+            delete_app_button = types.InlineKeyboardButton('حذف تطبيق', callback_data=f"delete_app:{account[0]}")
+            markup.add(view_apps_button, delete_app_button)
+            bot.send_message(message.chat.id, f"الحساب: {account[1]}", reply_markup=markup)
+    else:
+        bot.reply_to(message, "لم تقم بإضافة أي حسابات بعد.")
 
 # عرض التطبيقات المضافة لحساب معين
 @bot.callback_query_handler(func=lambda call: call.data.startswith('view_apps'))
@@ -162,8 +159,8 @@ def view_apps(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('delete_app'))
 def delete_app(call):
     account_id = call.data.split(':')[1]
-    msg = bot.send_message(call.message.chat.id, "قم بإرسال اسم التطبيق الذي تريد حذفه.")
-    bot.register_next_step_handler(msg, process_delete_app, account_id)
+    bot.send_message(call.message.chat.id, "قم بإرسال اسم التطبيق الذي تريد حذفه.")
+    bot.register_next_step_handler(call.message, process_delete_app, account_id)
 
 def process_delete_app(message, account_id):
     app_name = message.text
@@ -177,17 +174,14 @@ def process_delete_app(message, account_id):
 # عرض حالة التخزين
 @bot.message_handler(func=lambda message: message.text == 'حالة التخزين')
 def storage_status(message):
-    try:
-        cursor.execute("SELECT COUNT(*) FROM users;")
-        user_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM accounts;")
-        account_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM applications;")
-        app_count = cursor.fetchone()[0]
-        status = f"عدد المستخدمين: {user_count}\nعدد الحسابات: {account_count}\nعدد التطبيقات: {app_count}"
-        bot.send_message(message.chat.id, status)
-    except Exception as e:
-        bot.send_message(message.chat.id, f"حدث خطأ أثناء جلب حالة التخزين: {e}")
+    cursor.execute("SELECT COUNT(*) FROM users;")
+    user_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM accounts;")
+    account_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM applications;")
+    app_count = cursor.fetchone()[0]
+    status = f"عدد المستخدمين: {user_count}\nعدد الحسابات: {account_count}\nعدد التطبيقات: {app_count}"
+    bot.send_message(message.chat.id, status)
 
 # التعامل مع الرسائل غير المعروفة
 @bot.message_handler(func=lambda message: True)
@@ -195,4 +189,4 @@ def handle_message(message):
     bot.reply_to(message, "يرجى استخدام الأزرار.")
 
 # تشغيل البوت
-bot.polling()
+bot.polling() 
