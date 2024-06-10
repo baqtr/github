@@ -71,7 +71,7 @@ def get_user_accounts(user_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT api_key FROM user_accounts WHERE user_id = %s
+        SELECT user_id FROM user_accounts WHERE user_id = %s
     """, (user_id,))
     accounts = cursor.fetchall()
     cursor.close()
