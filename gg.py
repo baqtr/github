@@ -109,13 +109,13 @@ def send_welcome(message):
 # إضافة حساب جديد
 @bot.message_handler(func=lambda message: message.text == 'إضافة حساب')
 def add_account(message):
-    bot.reply_to(message, "قم بإرسال اسم الحساب.")
-    bot.register_next_step_handler(message, process_account_name)
+    msg = bot.reply_to(message, "قم بإرسال اسم الحساب.")
+    bot.register_next_step_handler(msg, process_account_name)
 
 def process_account_name(message):
     account_name = message.text
-    bot.reply_to(message, "الآن قم بإرسال API Key.")
-    bot.register_next_step_handler(message, process_api_key, account_name)
+    msg = bot.reply_to(message, "الآن قم بإرسال API Key.")
+    bot.register_next_step_handler(msg, process_api_key, account_name)
 
 def process_api_key(message, account_name):
     api_key = message.text
@@ -159,8 +159,8 @@ def view_apps(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('delete_app'))
 def delete_app(call):
     account_id = call.data.split(':')[1]
-    bot.send_message(call.message.chat.id, "قم بإرسال اسم التطبيق الذي تريد حذفه.")
-    bot.register_next_step_handler(call.message, process_delete_app, account_id)
+    msg = bot.send_message(call.message.chat.id, "قم بإرسال اسم التطبيق الذي تريد حذفه.")
+    bot.register_next_step_handler(msg, process_delete_app, account_id)
 
 def process_delete_app(message, account_id):
     app_name = message.text
