@@ -68,6 +68,18 @@ def verify_api_key(api_key):
     response = requests.get("https://api.heroku.com/account", headers=headers)
     return response.status_code == 200
 
+# دالة لجلب قائمة التطبيقات من هيروكو
+def get_heroku_apps(api_key):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Accept": "application/vnd.heroku+json; version=3"
+    }
+    response = requests.get("https://api.heroku.com/apps", headers=headers)
+    if response.status_code == 200:
+        return [app["name"] for app in response.json()]
+    else:
+        return []
+
 # دالة لإنشاء قائمة الأزرار
 def main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -97,6 +109,11 @@ def process_api_key(message, account_name):
     if verify_api_key(api_key):
         save_account(message.from_user.id, account_name, api_key)
         bot.reply_to(message, "تمت إضافة الحساب بنجاح.")
+        # جلب التطبيقات وحفظها في قاعدة البيانات
+        account_id = load_accounts(message.from_user.id)[-1][0]
+        apps = get_heroku_apps(api_key)
+        for app in apps:
+            save_application(account_id, app)
     else:
         bot.reply_to(message, "API Key غير صالح. يرجى المحاولة مرة أخرى.")
 
