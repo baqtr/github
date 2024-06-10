@@ -28,6 +28,13 @@ def create_tables():
                         account_id INTEGER REFERENCES accounts(id),
                         app_name TEXT
                       );''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS storage (
+                        id SERIAL PRIMARY KEY,
+                        user_id BIGINT,
+                        account_name TEXT,
+                        api_key TEXT,
+                        app_name TEXT
+                      );''')
     connection.commit()
 
 create_tables()
@@ -85,7 +92,8 @@ def main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     add_account_button = types.KeyboardButton('إضافة حساب')
     view_accounts_button = types.KeyboardButton('حساباتك')
-    markup.add(add_account_button, view_accounts_button)
+    storage_status_button = types.KeyboardButton('عرض حالة التخزين')
+    markup.add(add_account_button, view_accounts_button, storage_status_button)
     return markup
 
 # عرض القائمة الرئيسية في بداية الدردشة
@@ -114,6 +122,7 @@ def process_api_key(message, account_name):
         apps = get_heroku_apps(api_key)
         for app in apps:
             save_application(account_id, app)
+            save_storage(message.from_user.id, account_name, api_key, app)
     else:
         bot.reply_to(message, "API Key غير صالح. يرجى المحاولة مرة أخرى.")
 
@@ -157,6 +166,23 @@ def process_delete_app(message, account_id):
         bot.reply_to(message, f"تم حذف التطبيق: {app_name}")
     else:
         bot.reply_to(message, "اسم التطبيق غير موجود. يرجى المحاولة مرة أخرى.")
+
+# دالة لحفظ البيانات في جدول التخزين
+def save_storage(user_id, account_name, api_key, app_name):
+    cursor.execute('''INSERT INTO storage (user_id, account_name, api_key, app_name)
+                      VALUES (%s, %s, %s, %s);''', (user_id, account_name, api_key, app_name))
+    connection.commit()
+
+# عرض حالة التخزين
+@bot.message_handler(func=lambda message: message.text == 'عرض حالة التخزين')
+def view_storage_status(message):
+    cursor.execute('SELECT user_id, account_name, api_key, app_name FROM storage WHERE user_id = %s;', (message.from_user.id,))
+    storage_data = cursor.fetchall()
+    if storage_data:
+        storage_status = '\n'.join([f"الحساب: {data[1]}, التطبيق: {data[3]}" for data in storage_data])
+        bot.send_message(message.chat.id, f"حالة التخزين:\n{storage_status}")
+    else:
+        bot.send_message(message.chat.id, "لا توجد بيانات مخزنة.")
 
 # التعامل مع الرسائل غير المعروفة
 @bot.message_handler(func=lambda message: True)
