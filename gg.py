@@ -148,7 +148,7 @@ def create_account_control_buttons(account_index):
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
-    if user_id not in user_accounts:
+    if user_id not in get_user_accounts(user_id):
         user_accounts[user_id] = []
         events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
     bot.send_message(message.chat.id, "اهلا وسهلا نورتنا اختار من بين الازرار ماذا تريد", reply_markup=create_main_buttons())
