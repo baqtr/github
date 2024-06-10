@@ -1,6 +1,7 @@
 import os
 import telebot
 import psycopg2
+import requests
 from telebot import types
 
 # استيراد توكن البوت من المتغيرات البيئية
@@ -14,63 +15,131 @@ bot = telebot.TeleBot(bot_token)
 connection = psycopg2.connect(database_url)
 cursor = connection.cursor()
 
-# دالة لإنشاء جدول الصور إذا لم يكن موجودًا
-def create_table():
-    cursor.execute('''CREATE TABLE IF NOT EXISTS stickers (
+# دالة لإنشاء جدول الحسابات والتطبيقات إذا لم تكن موجودة
+def create_tables():
+    cursor.execute('''CREATE TABLE IF NOT EXISTS accounts (
                         id SERIAL PRIMARY KEY,
-                        file_id TEXT,
-                        emoji TEXT
+                        user_id BIGINT,
+                        account_name TEXT,
+                        api_key TEXT UNIQUE
+                      );''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS applications (
+                        id SERIAL PRIMARY KEY,
+                        account_id INTEGER REFERENCES accounts(id),
+                        app_name TEXT
                       );''')
     connection.commit()
 
-create_table()
+create_tables()
 
-# دالة لحفظ الملصق في قاعدة البيانات
-def save_sticker(file_id, emoji):
-    cursor.execute('''INSERT INTO stickers (file_id, emoji)
-                      VALUES (%s, %s);''', (file_id, emoji))
+# دالة لحفظ الحساب في قاعدة البيانات
+def save_account(user_id, account_name, api_key):
+    cursor.execute('''INSERT INTO accounts (user_id, account_name, api_key)
+                      VALUES (%s, %s, %s);''', (user_id, account_name, api_key))
     connection.commit()
 
-# دالة لجلب الملصقات من قاعدة البيانات
-def load_stickers():
-    cursor.execute("SELECT * FROM stickers")
+# دالة لجلب الحسابات من قاعدة البيانات
+def load_accounts(user_id):
+    cursor.execute('SELECT id, account_name, api_key FROM accounts WHERE user_id = %s;', (user_id,))
     return cursor.fetchall()
 
-# عرض القائمة الرئيسية
+# دالة لحفظ التطبيقات في قاعدة البيانات
+def save_application(account_id, app_name):
+    cursor.execute('''INSERT INTO applications (account_id, app_name)
+                      VALUES (%s, %s);''', (account_id, app_name))
+    connection.commit()
+
+# دالة لجلب التطبيقات من قاعدة البيانات
+def load_applications(account_id):
+    cursor.execute('SELECT app_name FROM applications WHERE account_id = %s;', (account_id,))
+    return cursor.fetchall()
+
+# دالة لحذف التطبيق من قاعدة البيانات
+def delete_application(account_id, app_name):
+    cursor.execute('DELETE FROM applications WHERE account_id = %s AND app_name = %s;', (account_id, app_name))
+    connection.commit()
+
+# دالة للتحقق من صحة API Key
+def verify_api_key(api_key):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Accept": "application/vnd.heroku+json; version=3"
+    }
+    response = requests.get("https://api.heroku.com/account", headers=headers)
+    return response.status_code == 200
+
+# دالة لإنشاء قائمة الأزرار
 def main_menu():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    add_button = types.KeyboardButton('إضافة ملصق')
-    view_button = types.KeyboardButton('عرض الملصقات')
-    markup.add(add_button, view_button)
+    add_account_button = types.KeyboardButton('إضافة حساب')
+    view_accounts_button = types.KeyboardButton('حساباتك')
+    markup.add(add_account_button, view_accounts_button)
     return markup
 
 # عرض القائمة الرئيسية في بداية الدردشة
 @bot.message_handler(commands=['start'])
-def send_main_menu(message):
-    bot.send_message(message.chat.id, "مرحبًا بك!", reply_markup=main_menu())
+def send_welcome(message):
+    bot.send_message(message.chat.id, "مرحبًا بك! اختر ما ترغب في القيام به:", reply_markup=main_menu())
 
-# إضافة ملصق جديد
-@bot.message_handler(content_types=['text'], func=lambda message: message.text == 'إضافة ملصق')
-def add_sticker(message):
-    bot.reply_to(message, "قم بإرسال الملصق.")
-    bot.register_next_step_handler(message, process_new_sticker)
+# إضافة حساب جديد
+@bot.message_handler(func=lambda message: message.text == 'إضافة حساب')
+def add_account(message):
+    bot.reply_to(message, "قم بإرسال اسم الحساب.")
+    bot.register_next_step_handler(message, process_account_name)
 
-def process_new_sticker(message):
-    file_id = message.sticker.file_id
-    emoji = message.sticker.emoji
-    save_sticker(file_id, emoji)
-    bot.reply_to(message, "تم حفظ الملصق بنجاح.")
+def process_account_name(message):
+    account_name = message.text
+    bot.reply_to(message, "الآن قم بإرسال API Key.")
+    bot.register_next_step_handler(message, process_api_key, account_name)
 
-# عرض الملصقات المخزنة
-@bot.message_handler(content_types=['text'], func=lambda message: message.text == 'عرض الملصقات')
-def show_stickers(message):
-    stickers = load_stickers()
-    if stickers:
-        bot.send_message(message.chat.id, "الملصقات المخزنة:")
-        for sticker in stickers:
-            bot.send_sticker(message.chat.id, sticker[1], sticker[2])
+def process_api_key(message, account_name):
+    api_key = message.text
+    if verify_api_key(api_key):
+        save_account(message.from_user.id, account_name, api_key)
+        bot.reply_to(message, "تمت إضافة الحساب بنجاح.")
     else:
-        bot.reply_to(message, "لا توجد ملصقات مخزنة.")
+        bot.reply_to(message, "API Key غير صالح. يرجى المحاولة مرة أخرى.")
+
+# عرض الحسابات المضافة
+@bot.message_handler(func=lambda message: message.text == 'حساباتك')
+def view_accounts(message):
+    accounts = load_accounts(message.from_user.id)
+    if accounts:
+        for account in accounts:
+            markup = types.InlineKeyboardMarkup()
+            view_apps_button = types.InlineKeyboardButton('عرض التطبيقات', callback_data=f"view_apps:{account[0]}")
+            delete_app_button = types.InlineKeyboardButton('حذف تطبيق', callback_data=f"delete_app:{account[0]}")
+            markup.add(view_apps_button, delete_app_button)
+            bot.send_message(message.chat.id, f"الحساب: {account[1]}", reply_markup=markup)
+    else:
+        bot.reply_to(message, "لم تقم بإضافة أي حسابات بعد.")
+
+# عرض التطبيقات المضافة لحساب معين
+@bot.callback_query_handler(func=lambda call: call.data.startswith('view_apps'))
+def view_apps(call):
+    account_id = call.data.split(':')[1]
+    applications = load_applications(account_id)
+    if applications:
+        app_list = '\n'.join([app[0] for app in applications])
+        bot.send_message(call.message.chat.id, f"التطبيقات:\n{app_list}")
+    else:
+        bot.send_message(call.message.chat.id, "لا توجد تطبيقات.")
+
+# حذف تطبيق لحساب معين
+@bot.callback_query_handler(func=lambda call: call.data.startswith('delete_app'))
+def delete_app(call):
+    account_id = call.data.split(':')[1]
+    bot.send_message(call.message.chat.id, "قم بإرسال اسم التطبيق الذي تريد حذفه.")
+    bot.register_next_step_handler(call.message, process_delete_app, account_id)
+
+def process_delete_app(message, account_id):
+    app_name = message.text
+    applications = load_applications(account_id)
+    if (app_name,) in applications:
+        delete_application(account_id, app_name)
+        bot.reply_to(message, f"تم حذف التطبيق: {app_name}")
+    else:
+        bot.reply_to(message, "اسم التطبيق غير موجود. يرجى المحاولة مرة أخرى.")
 
 # التعامل مع الرسائل غير المعروفة
 @bot.message_handler(func=lambda message: True)
