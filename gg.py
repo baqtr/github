@@ -1,181 +1,191 @@
-import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
-import os
-import re
-import subprocess
-import time
-import threading
+import telebot
+from telebot import types
+import fitz  # PyMuPDF
+import io
+from pdf2image import convert_from_path
+import pikepdf
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+# ضع هنا توكن البوت الخاص بك
+API_TOKEN = '7035086363:AAG_DSbJppFhb1rcsfXdmDs4xOUbzvjdJUU'
 
-TOKEN = "7035086363:AAG_DSbJppFhb1rcsfXdmDs4xOUbzvjdJUU"
+bot = telebot.TeleBot(API_TOKEN)
 
-def start(update: Update, context: CallbackContext) -> None:
-    file_path = context.user_data.get('file_path')
-    if file_path:
-        show_menu(update.message.reply_text, "📂 تم استقبال الملف مسبقاً. اختر عملية:")
+# معالجة البدء /start
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    markup = types.InlineKeyboardMarkup()
+    item1 = types.InlineKeyboardButton('إضافة علامة مائية', callback_data='add_watermark')
+    item2 = types.InlineKeyboardButton('استخراج الصور', callback_data='extract_images')
+    item3 = types.InlineKeyboardButton('دمج ملفات PDF', callback_data='merge_pdfs')
+    item4 = types.InlineKeyboardButton('تقسيم ملفات PDF', callback_data='split_pdf')
+    item5 = types.InlineKeyboardButton('تحويل PDF إلى صور', callback_data='pdf_to_images')
+    item6 = types.InlineKeyboardButton('تحويل صور إلى PDF', callback_data='images_to_pdf')
+    markup.add(item1, item2, item3, item4, item5, item6)
+
+    bot.send_message(message.chat.id, "أهلاً بك! اختر إحدى الخيارات:", reply_markup=markup)
+
+# معالجة الضغط على الأزرار
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == 'add_watermark':
+        bot.send_message(call.message.chat.id, "أرسل لي ملف PDF لإضافة علامة مائية.")
+        bot.register_next_step_handler(call.message, watermark_step)
+    elif call.data == 'extract_images':
+        bot.send_message(call.message.chat.id, "أرسل لي ملف PDF لاستخراج الصور.")
+        bot.register_next_step_handler(call.message, extract_images_step)
+    elif call.data == 'merge_pdfs':
+        bot.send_message(call.message.chat.id, "أرسل لي ملفات PDF لدمجها.")
+        bot.register_next_step_handler(call.message, merge_pdfs_step)
+    elif call.data == 'split_pdf':
+        bot.send_message(call.message.chat.id, "أرسل لي ملف PDF لتقسيمه.")
+        bot.register_next_step_handler(call.message, split_pdf_step)
+    elif call.data == 'pdf_to_images':
+        bot.send_message(call.message.chat.id, "أرسل لي ملف PDF لتحويله إلى صور.")
+        bot.register_next_step_handler(call.message, pdf_to_images_step)
+    elif call.data == 'images_to_pdf':
+        bot.send_message(call.message.chat.id, "أرسل لي الصور لتحويلها إلى PDF.")
+        bot.register_next_step_handler(call.message, images_to_pdf_step)
+
+def watermark_step(message):
+    if message.document.mime_type == 'application/pdf':
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        with open('document.pdf', 'wb') as new_file:
+            new_file.write(downloaded_file)
+        bot.send_message(message.chat.id, "أرسل لي النص الذي تود إضافته كعلامة مائية.")
+        bot.register_next_step_handler(message, apply_watermark)
     else:
-        update.message.reply_text("👋 مرحباً! أنا بوت إدارة ملفات بايثون. الرجاء إرسال ملف بايثون لتبدأ.")
+        bot.send_message(message.chat.id, "الرجاء إرسال ملف PDF صالح.")
 
-def handle_file(update: Update, context: CallbackContext) -> None:
-    file = update.message.document
-    if file.file_name.endswith('.py'):
-        file_path = file.get_file().download()
-        context.user_data['file_path'] = file_path
-        context.user_data['file_name'] = file.file_name
-        context.user_data['modifications'] = []
+def apply_watermark(message):
+    watermark_text = message.text
+    doc = fitz.open('document.pdf')
+    for page in doc:
+        page.insert_text((100, 100), watermark_text, fontsize=20, color=(0, 0, 1))
+    doc.save('watermarked.pdf')
+    with open('watermarked.pdf', 'rb') as pdf_file:
+        bot.send_document(message.chat.id, pdf_file)
+    bot.send_message(message.chat.id, "تمت إضافة العلامة المائية بنجاح!")
 
-        show_menu(update.message.reply_text, "📂 تم استقبال الملف. اختر عملية:")
+def extract_images_step(message):
+    if message.document.mime_type == 'application/pdf':
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        with open('document.pdf', 'wb') as new_file:
+            new_file.write(downloaded_file)
+        bot.send_message(message.chat.id, "جار استخراج الصور...")
+        extract_images(message)
     else:
-        update.message.reply_text("❌ الرجاء إرسال ملف بايثون بامتداد .py")
+        bot.send_message(message.chat.id, "الرجاء إرسال ملف PDF صالح.")
 
-def button(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
+def extract_images(message):
+    images = convert_from_path('document.pdf')
+    for i, image in enumerate(images):
+        image.save(f'page_{i}.png', 'PNG')
+        with open(f'page_{i}.png', 'rb') as img_file:
+            bot.send_photo(message.chat.id, img_file)
+    bot.send_message(message.chat.id, "تم استخراج الصور بنجاح!")
 
-    if 'file_path' not in context.user_data:
-        query.edit_message_text(text="⚠️ لم يتم استقبال ملف بعد. الرجاء إرسال ملف بايثون أولاً.")
-        return
+def merge_pdfs_step(message):
+    bot.send_message(message.chat.id, "أرسل لي ملفات PDF واحدًا تلو الآخر. ارسل 'انتهيت' عندما تكون جاهزًا.")
+    pdf_files = []
+    bot.register_next_step_handler(message, lambda m: collect_pdfs(m, pdf_files))
 
-    file_path = context.user_data['file_path']
-
-    if query.data == 'show_commands':
-        show_commands(query, file_path)
-    elif query.data == 'show_libraries':
-        show_libraries(query, file_path)
-    elif query.data == 'fix_errors':
-        perform_with_progress(query, file_path, context, fix_errors, "تصحيح الأخطاء")
-    elif query.data == 'clean_file':
-        perform_with_progress(query, file_path, context, clean_file, "تنظيف الملف")
-    elif query.data == 'format_code':
-        perform_with_progress(query, file_path, context, format_code, "تنظيم الكود")
-    elif query.data == 'optimize':
-        perform_with_progress(query, file_path, context, optimize, "تحسين الأداء")
-    elif query.data == 'send_file':
-        send_file(query, context)
-    elif query.data == 'reload_file':
-        reload_file(query, context)
-    elif query.data == 'test_file':
-        test_file(query, file_path)
-    elif query.data == 'back_to_menu':
-        back_to_menu(query, context)
-
-def perform_with_progress(query, file_path, context, func, action_name):
-    def update_progress(message, progress):
-        bar = '⬛' * (progress // 10) + '⬜' * (10 - progress // 10)
-        message.edit_text(f"{action_name}:\n{bar} {progress}%")
-
-    def run_action():
-        message = query.edit_message_text(f"{action_name}:\n⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0%")
-        for i in range(1, 11):
-            time.sleep(0.5)
-            update_progress(message, i * 10)
-        func(file_path, context)
-        context.user_data['modifications'].append(action_name)
-        message.edit_text(f"✅ تم {action_name}.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-    thread = threading.Thread(target=run_action)
-    thread.start()
-
-def show_menu(reply_func, message):
-    keyboard = [
-        [InlineKeyboardButton("🔍 عرض الأوامر", callback_data='show_commands')],
-        [InlineKeyboardButton("📚 عرض المكاتب", callback_data='show_libraries')],
-        [InlineKeyboardButton("🛠️ تصحيح الأخطاء", callback_data='fix_errors')],
-        [InlineKeyboardButton("🧹 تنظيف الملف", callback_data='clean_file')],
-        [InlineKeyboardButton("🗂️ تنظيم الكود", callback_data='format_code')],
-        [InlineKeyboardButton("🚀 تحسين الأداء", callback_data='optimize')],
-        [InlineKeyboardButton("📤 إرسال الملف", callback_data='send_file')],
-        [InlineKeyboardButton("🔄 تحديث الملف", callback_data='reload_file')],
-        [InlineKeyboardButton("⚙️ اختبار الملف", callback_data='test_file')],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    reply_func(message, reply_markup=reply_markup)
-
-def show_commands(query, file_path):
-    with open(file_path, 'r') as f:
-        content = f.read()
-    commands = [line for line in content.split('\n') if line.strip().startswith('def ')]
-    query.edit_message_text(text="الأوامر:\n" + '\n'.join(commands), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-def show_libraries(query, file_path):
-    with open(file_path, 'r') as f:
-        content = f.read()
-    libraries = [line for line in content.split('\n') if line.strip().startswith('import ') or line.strip().startswith('from ')]
-    library_text = "\n".join([f"`{lib}`" for lib in libraries])
-    query.edit_message_text(text=f"المكاتب:\n{library_text}\n(يمكنك نسخ المكتبة بالنقر عليها)", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]), parse_mode='Markdown')
-
-def fix_errors(file_path, context):
-    with open(file_path, 'r') as f:
-        content = f.read()
-
-    content = re.sub(r'print\s+"', 'print("', content)
-    content = re.sub(r'"\s*$', '")', content)
-
-    with open(file_path, 'w') as f:
-        f.write(content)
-
-def clean_file(file_path, context):
-    with open(file_path, 'r') as f:
-        content = f.read()
-    cleaned_content = '\n'.join([line for line in content.split('\n') if not line.strip().startswith('#')])
-    with open(file_path, 'w') as f:
-        f.write(cleaned_content)
-
-def format_code(file_path, context):
-    with open(file_path, 'r') as f:
-        content = f.read()
-    formatted_content = '\n'.join([line.strip() for line in content.split('\n')])
-    with open(file_path, 'w') as f:
-        f.write(formatted_content)
-
-def optimize(file_path, context):
-    pass
-
-def reload_file(query, context):
-    file_path = context.user_data['file_path']
-    context.user_data['modifications'] = []
-    query.edit_message_text(text="🔄 تم تحديث الملف. اختر عملية من جديد.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-def send_file(query, context):
-    file_path = context.user_data['file_path']
-    modifications = context.user_data['modifications']
-    modifications_text = "التعديلات التي تمت على الملف:\n" + '\n'.join(modifications)
-    line_count = sum(1 for line in open(file_path))
-
-    with open(file_path, 'rb') as f:
-        context.bot.send_document(chat_id=query.message.chat_id, document=InputFile(f, filename=context.user_data['file_name']))
-    
-    result_text = f"{modifications_text}\nعدد التعديلات: {len(modifications)}\nعدد سطور الملف: {line_count}\nنسبة نجاح العملية: ✅"
-    context.bot.send_message(chat_id=query.message.chat_id, text=result_text)
-    query.edit_message_text(text="📤 تم إرسال الملف المعدل.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-def test_file(query, file_path):
-    query.edit_message_text(text="⚙️ جارٍ اختبار الملف...")
-    try:
-        result = subprocess.run(['python', file_path], capture_output=True, text=True, timeout=30)
-        if result.returncode == 0:
-            query.edit_message_text(text=f"✅ تم اختبار الملف بنجاح:\n{result.stdout}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
+def collect_pdfs(message, pdf_files):
+    if message.text.lower() == 'انتهيت':
+        if len(pdf_files) < 2:
+            bot.send_message(message.chat.id, "يجب أن ترسل ملفين PDF على الأقل للدمج.")
         else:
-            query.edit_message_text(text=f"❌ فشل اختبار الملف:\n{result.stderr}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-    except subprocess.TimeoutExpired:
-        query.edit_message_text(text="⏰ تجاوز وقت اختبار الملف 30 ثانية.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
+            bot.send_message(message.chat.id, "جار دمج الملفات...")
+            merged_pdf = pikepdf.Pdf.new()
+            for pdf_file in pdf_files:
+                src_pdf = pikepdf.Pdf.open(io.BytesIO(pdf_file))
+                merged_pdf.pages.extend(src_pdf.pages)
+            merged_pdf.save('merged.pdf')
+            with open('merged.pdf', 'rb') as pdf_file:
+                bot.send_document(message.chat.id, pdf_file)
+            bot.send_message(message.chat.id, "تم دمج الملفات بنجاح!")
+    else:
+        if message.document.mime_type == 'application/pdf':
+            file_info = bot.get_file(message.document.file_id)
+            downloaded_file = bot.download_file(file_info.file_path)
+            pdf_files.append(downloaded_file)
+            bot.send_message(message.chat.id, "أرسل ملف PDF آخر أو اكتب 'انتهيت' للدمج.")
+        else:
+            bot.send_message(message.chat.id, "الرجاء إرسال ملف PDF صالح.")
+        bot.register_next_step_handler(message, lambda m: collect_pdfs(m, pdf_files))
 
-def back_to_menu(query, context):
-    show_menu(query.edit_message_text, "تم العودة إلى القائمة الرئيسية. اختر عملية:")
-    
-def main() -> None:
-    updater = Updater(TOKEN)
-    dp = updater.dispatcher
+def split_pdf_step(message):
+    if message.document.mime_type == 'application/pdf':
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        with open('document.pdf', 'wb') as new_file:
+            new_file.write(downloaded_file)
+        bot.send_message(message.chat.id, "جار تقسيم الملف...")
+        doc = fitz.open('document.pdf')
+        for i in range(len(doc)):
+            new_doc = fitz.open()
+            new_doc.insert_pdf(doc, from_page=i, to_page=i)
+            new_doc.save(f'page_{i + 1}.pdf')
+            with open(f'page_{i + 1}.pdf', 'rb') as pdf_file:
+                bot.send_document(message.chat.id, pdf_file)
+        bot.send_message(message.chat.id, "تم تقسيم الملف بنجاح!")
+    else:
+        bot.send_message(message.chat.id, "الرجاء إرسال ملف PDF صالح.")
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.document, handle_file))
-    dp.add_handler(CallbackQueryHandler(button))
+def pdf_to_images_step(message):
+    if message.document.mime_type == 'application/pdf':
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        with open('document.pdf', 'wb') as new_file:
+            new_file.write(downloaded_file)
+        bot.send_message(message.chat.id, "جار تحويل الملف إلى صور...")
+        images = convert_from_path('document.pdf')
+        for i, image in enumerate(images):
+            image.save(f'page_{i}.png', 'PNG')
+            with open(f'page_{i}.png', 'rb') as img_file:
+                bot.send_photo(message.chat.id, img_file)
+        bot.send_message(message.chat.id, "تم تحويل الملف إلى صور بنجاح!")
+    else:
+        bot.send_message(message.chat.id, "الرجاء إرسال ملف PDF صالح.")
 
-    updater.start_polling()
-    updater.idle()
+def images_to_pdf_step(message):
+    if message.photo:
+        file_info = bot.get_file(message.photo[-1].file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        with open(f'image_{message.photo[-1].file_id}.png', 'wb') as img_file:
+            img_file.write(downloaded_file)
+        bot.send_message(message.chat.id, "أرسل صورة أخرى أو اكتب 'انتهيت' للدمج.")
+        bot.register_next_step_handler(message, lambda m: collect_images(m, [f'image_{message.photo[-1].file_id}.png']))
+    else:
+        bot.send_message(message.chat.id, "الرجاء إرسال صورة صالحة.")
 
-if __name__ == '__main__':
-    main()
+def collect_images(message, image_files):
+    if message.text.lower() == 'انتهيت':
+        if len(image_files) < 1:
+            bot.send_message(message.chat.id, "يجب أن ترسل صورة واحدة على الأقل.")
+        else:
+            bot.send_message(message.chat.id, "جار دمج الصور...")
+            images = [fitz.open(image_file).convert_to_pdf() for image_file in image_files]
+            merged_pdf = fitz.open()
+            for img_pdf in images:
+                merged_pdf.insert_pdf(img_pdf)
+            merged_pdf.save('images_to_pdf.pdf')
+            with open('images_to_pdf.pdf', 'rb') as pdf_file:
+                bot.send_document(message.chat.id, pdf_file)
+            bot.send_message(message.chat.id, "تم تحويل الصور إلى ملف PDF بنجاح!")
+    else:
+        if message.photo:
+            file_info = bot.get_file(message.photo[-1].file_id)
+            downloaded_file = bot.download_file(file_info.file_path)
+            image_file = f'image_{message.photo[-1].file_id}.png'
+            with open(image_file, 'wb') as img_file:
+                img_file.write(downloaded_file)
+            image_files.append(image_file)
+            bot.send_message(message.chat.id, "أرسل صورة أخرى أو اكتب 'انتهيت' للدمج.")
+        else:
+            bot.send_message(message.chat.id, "الرجاء إرسال صورة صالحة.")
+        bot.register_next_step_handler(message, lambda m: collect_images(m, image_files))
+
+# تشغيل البوت
+bot.polling()
