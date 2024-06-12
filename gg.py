@@ -22,7 +22,14 @@ def send_welcome(message):
     item6 = types.InlineKeyboardButton('🖼️ تحويل صور إلى PDF', callback_data='images_to_pdf')
     item7 = types.InlineKeyboardButton('📝 تحرير النص في PDF', callback_data='edit_text')
     item8 = types.InlineKeyboardButton('🔍 البحث عن نص في PDF', callback_data='search_text')
-    markup.add(item1, item2, item3, item4, item5, item6, item7, item8)
+    markup.add(item1)
+    markup.add(item2)
+    markup.add(item3)
+    markup.add(item4)
+    markup.add(item5)
+    markup.add(item6)
+    markup.add(item7)
+    markup.add(item8)
 
     bot.send_message(message.chat.id, "أهلاً بك! اختر إحدى الخيارات:", reply_markup=markup)
 
@@ -158,6 +165,7 @@ def pdf_to_images_step(message):
         bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
 
 def images_to_pdf_step(message):
+    def images_to_pdf_step(message):
     if message.photo:
         file_info = bot.get_file(message.photo[-1].file_id)
         downloaded_file = bot.download_file(file_info.file_path)
@@ -174,9 +182,12 @@ def collect_images(message, image_files):
             bot.send_message(message.chat.id, "❌ يجب أن ترسل صورة واحدة على الأقل.")
         else:
             bot.send_message(message.chat.id, "🖼️ جار دمج الصور...")
-            images = [fitz.open(image_file).convert_to_pdf() for image_file in image_files]
             merged_pdf = fitz.open()
-            for img_pdf in images:
+            for image_file in image_files:
+                img_pdf = fitz.open(image_file)
+                pdf_bytes = img_pdf.convert_to_pdf()
+                img_pdf.close()
+                img_pdf = fitz.open("pdf", pdf_bytes)
                 merged_pdf.insert_pdf(img_pdf)
             merged_pdf.save('images_to_pdf.pdf')
             with open('images_to_pdf.pdf', 'rb') as pdf_file:
