@@ -6,7 +6,7 @@ from pdf2image import convert_from_path
 import pikepdf
 
 # ضع هنا توكن البوت الخاص بك
-API_TOKEN = '7035086363:AAG_DSbJppFhb1rcsfXdmDs4xOUbzvjdJUU'
+API_TOKEN = 'YOUR_API_TOKEN_HERE'
 
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -165,7 +165,6 @@ def pdf_to_images_step(message):
         bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
 
 def images_to_pdf_step(message):
-    def images_to_pdf_step(message):
     if message.photo:
         file_info = bot.get_file(message.photo[-1].file_id)
         downloaded_file = bot.download_file(file_info.file_path)
