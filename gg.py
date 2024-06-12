@@ -6,7 +6,7 @@ from pdf2image import convert_from_path
 import pikepdf
 
 # ضع هنا توكن البوت الخاص بك
-API_TOKEN = 'YOUR_API_TOKEN_HERE'
+API_TOKEN = '7035086363:AAG_DSbJppFhb1rcsfXdmDs4xOUbzvjdJUU'
 
 bot = telebot.TeleBot(API_TOKEN)
 
