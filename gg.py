@@ -1,322 +1,80 @@
-import telebot
-from telebot import types
-import fitz  # PyMuPDF
-import io
-from pdf2image import convert_from_path
-import pikepdf
+import websocket
+import ssl
+import os
+import json
+import gzip
+import requests
+from time import sleep
+import random
+import concurrent.futures
 
-# ضع هنا توكن البوت الخاص بك
-API_TOKEN = '7035086363:AAG_DSbJppFhb1rcsfXdmDs4xOUbzvjdJUU'
+created = 0
+failed = 0
 
-bot = telebot.TeleBot(API_TOKEN)
+G = '\033[1;32m'
+L = '\033[1;31m'
 
-# معالجة البدء /start
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    markup = types.InlineKeyboardMarkup()
-    item1 = types.InlineKeyboardButton('📜 إضافة علامة مائية', callback_data='add_watermark')
-    item2 = types.InlineKeyboardButton('🖼️ استخراج الصور', callback_data='extract_images')
-    item3 = types.InlineKeyboardButton('📚 دمج ملفات PDF', callback_data='merge_pdfs')
-    item4 = types.InlineKeyboardButton('✂️ تقسيم ملفات PDF', callback_data='split_pdf')
-    item5 = types.InlineKeyboardButton('🖼️ تحويل PDF إلى صور', callback_data='pdf_to_images')
-    item6 = types.InlineKeyboardButton('🖼️ تحويل صور إلى PDF', callback_data='images_to_pdf')
-    item7 = types.InlineKeyboardButton('📝 تحرير النص في PDF', callback_data='edit_text')
-    item8 = types.InlineKeyboardButton('🔍 البحث عن نص في PDF', callback_data='search_text')
-    item9 = types.InlineKeyboardButton('🔒 حماية PDF بكلمة مرور', callback_data='protect_pdf')
-    item10 = types.InlineKeyboardButton('🔓 إزالة كلمة مرور من PDF', callback_data='remove_password')
-    markup.add(item1, item2)
-    markup.add(item3, item4)
-    markup.add(item5, item6)
-    markup.add(item7, item8)
-    markup.add(item9, item10)
+own_id = -1002158338443  # يجب استبدال هذا بـ chat_id للمجموعة
+tele_bot = '7379229933:AAHMid3NaTcohdy_x6eFJHQlRQ6A_Wp4SLk'  # يجب وضع التوكن الخاص بالبوت هنا
+ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
 
-    bot.send_message(message.chat.id, "أهلاً بك! اختر إحدى الخيارات:", reply_markup=markup)
 
-# معالجة الضغط على الأزرار
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    if call.data == 'add_watermark':
-        bot.send_message(call.message.chat.id, "📜 أرسل لي ملف PDF لإضافة علامة مائية.")
-        bot.register_next_step_handler(call.message, watermark_step)
-    elif call.data == 'extract_images':
-        bot.send_message(call.message.chat.id, "🖼️ أرسل لي ملف PDF لاستخراج الصور.")
-        bot.register_next_step_handler(call.message, extract_images_step)
-    elif call.data == 'merge_pdfs':
-        bot.send_message(call.message.chat.id, "📚 أرسل لي ملفات PDF لدمجها.")
-        bot.register_next_step_handler(call.message, merge_pdfs_step)
-    elif call.data == 'split_pdf':
-        bot.send_message(call.message.chat.id, "✂️ أرسل لي ملف PDF لتقسيمه.")
-        bot.register_next_step_handler(call.message, split_pdf_step)
-    elif call.data == 'pdf_to_images':
-        bot.send_message(call.message.chat.id, "🖼️ أرسل لي ملف PDF لتحويله إلى صور.")
-        bot.register_next_step_handler(call.message, pdf_to_images_step)
-    elif call.data == 'images_to_pdf':
-        bot.send_message(call.message.chat.id, "🖼️ أرسل لي الصور لتحويلها إلى PDF.")
-        bot.register_next_step_handler(call.message, images_to_pdf_step)
-    elif call.data == 'edit_text':
-        bot.send_message(call.message.chat.id, "📝 أرسل لي ملف PDF لتحرير النص.")
-        bot.register_next_step_handler(call.message, edit_text_step)
-    elif call.data == 'search_text':
-        bot.send_message(call.message.chat.id, "🔍 أرسل لي ملف PDF للبحث عن نص.")
-        bot.register_next_step_handler(call.message, search_text_step)
-    elif call.data == 'protect_pdf':
-        bot.send_message(call.message.chat.id, "🔒 أرسل لي ملف PDF لحمايته بكلمة مرور.")
-        bot.register_next_step_handler(call.message, protect_pdf_step)
-    elif call.data == 'remove_password':
-        bot.send_message(call.message.chat.id, "🔓 أرسل لي ملف PDF لإزالة كلمة المرور.")
-        bot.register_next_step_handler(call.message, remove_password_step)
+def create():
+    global created
+    global failed
+    user = str(random.choice('qwertyuioplkjhgfdsazxcvbnm')[0]) + str(''.join(random.choice(ch) for i in range(8)))
 
-def watermark_step(message):
-    if message.document and message.document.mime_type == 'application/pdf':
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open('document.pdf', 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot.send_message(message.chat.id, "📜 أرسل لي النص الذي تود إضافته كعلامة مائية.")
-        bot.register_next_step_handler(message, apply_watermark)
+    headers = {
+        "app": "com.safeum.android",
+        "host": None,
+        "remoteIp": "195.13.182.217",
+        "remotePort": str(8080),
+        "sessionId": "b6cbb22d-06ca-41ff-8fda-c0ddeb148195",
+        "time": "2023-04-30 12:13:32",
+        "url": "wss://195.13.182.217/Auth"
+    }
+
+    data0 = {"action": "Register", "subaction": "Desktop", "locale": "en_GB", "gmt": "+02",
+             "password": {"m1x": "503c73d12b354f86ff9706b2114704380876f59f1444133e62ca27b5ee8127cc",
+                          "m1y": "6387ae32b7087257452ae27fc8a925ddd6ba31d955639838249c02b3de175dfc",
+                          "m2": "219d1d9b049550f26a6c7b7914a44da1b5c931eff8692dbfe3127eeb1a922fcf",
+                          "iv": "e38cb9e83aef6ceb60a7a71493317903",
+                          "message": "0d99759f972c527722a18a74b3e0b3c6060fe1be3ad53581a7692ff67b7bb651a18cde40552972d6d0b1482e119abde6203f5ab4985940da19bb998bb73f523806ed67cc6c9dbd310fd59fedee420f32"},
+             "magicword": {"m1x": "04eb364e4ef79f31f3e95df2a956e9c72ddc7b8ed4bf965f4cea42739dbe8a4a",
+                           "m1y": "ef1608faa151cb7989b0ba7f57b39822d7b282511a77c4d7a33afe8165bdc1ab",
+                           "m2": "4b4d1468bfaf01a82c574ea71c44052d3ecb7c2866a2ced102d0a1a55901c94b",
+                           "iv": "b31d0165dde6b3d204263d6ea4b96789",
+                           "message": "8c6ec7ce0b9108d882bb076be6e49fe2"},
+             "magicwordhint": "0000"
+             , "login": str(user), "devicename": "Xiaomi Redmi Note 8 Pro",
+             "softwareversion": "1.1.0.1380", "nickname": "hvtctchnjvfxfx"
+             , "os": "AND"
+             , "deviceuid": "c72d110c1ae40d50",
+             "devicepushuid": "*dxT6B6Solm0:APA91bHqL8wxzlyKHckKxMDz66HmUqmxCPAVKBDrs8KcxCAjwdpxIPTCfRmeEw8Jks_q13vOSFsOVjCVhb-CkkKmTUsaiS7YOYHQS_pbH1g6P4N-jlnRzySQwGvqMP1gxRVksHiOXKKP",
+             "osversion": "and_11.0.0", "id": "1734805704"}
+
+    ws = websocket.create_connection("wss://195.13.182.217/Auth", header=headers,
+                                     sslopt={"cert_reqs": ssl.CERT_NONE})
+    ws.send(json.dumps(data0))
+    result = ws.recv()
+    decoded_data = gzip.decompress(result)
+    if '"comment":"Exists"' in str(decoded_data):
+        failed += 1
+    elif '"status":"Success"' in str(decoded_data):
+        created += 1
+        # Sending notification with the username to the group
+        message = f"New user created: `{user}`"
+        requests.post(f'https://api.telegram.org/bot{tele_bot}/sendmessage?chat_id={own_id}&text={message}&parse_mode=markdown')
+    elif '"comment":"Retry"' in str(decoded_data):
+        failed += 1
     else:
-        bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
-        bot.register_next_step_handler(message, watermark_step)
+        print(decoded_data)
 
-def apply_watermark(message):
-    watermark_text = message.text
-    doc = fitz.open('document.pdf')
-    for page in doc:
-        page.insert_text((100, 100), watermark_text, fontsize=20, color=(0, 0, 1))
-    doc.save('watermarked.pdf')
-    with open('watermarked.pdf', 'rb') as pdf_file:
-        bot.send_document(message.chat.id, pdf_file)
-    bot.send_message(message.chat.id, "✅ تمت إضافة العلامة المائية بنجاح!")
 
-def extract_images_step(message):
-    if message.document and message.document.mime_type == 'application/pdf':
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open('document.pdf', 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot.send_message(message.chat.id, "🖼️ جار استخراج الصور...")
-        extract_images(message)
-    else:
-        bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
-        bot.register_next_step_handler(message, extract_images_step)
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=600)
 
-def extract_images(message):
-    images = convert_from_path('document.pdf')
-    for i, image in enumerate(images):
-        image.save(f'page_{i}.png', 'PNG')
-        with open(f'page_{i}.png', 'rb') as img_file:
-            bot.send_photo(message.chat.id, img_file)
-    bot.send_message(message.chat.id, "✅ تم استخراج الصور بنجاح!")
-
-def merge_pdfs_step(message):
-    bot.send_message(message.chat.id, "📚 أرسل لي ملفات PDF واحدًا تلو الآخر. ارسل 'انتهيت' عندما تكون جاهزًا.")
-    pdf_files = []
-    bot.register_next_step_handler(message, lambda m: collect_pdfs(m, pdf_files))
-
-def collect_pdfs(message, pdf_files):
-    if message.text and message.text.lower() == 'انتهيت':
-        if len(pdf_files) < 2:
-            bot.send_message(message.chat.id, "❌ يجب أن ترسل ملفين PDF على الأقل للدمج.")
-            bot.register_next_step_handler(message, lambda m: collect_pdfs(m, pdf_files))
-        else:
-            bot.send_message(message.chat.id, "📚 جار دمج الملفات...")
-            merged_pdf = pikepdf.Pdf.new()
-            for pdf_file in pdf_files:
-                src_pdf = pikepdf.Pdf.open(io.BytesIO(pdf_file))
-                merged_pdf.pages.extend(src_pdf.pages)
-            merged_pdf.save('merged.pdf')
-            with open('merged.pdf', 'rb') as pdf_file:
-                bot.send_document(message.chat.id, pdf_file)
-            bot.send_message(message.chat.id, "✅ تم دمج الملفات بنجاح!")
-    else:
-        if message.document and message.document.mime_type == 'application/pdf':
-            file_info = bot.get_file(message.document.file_id)
-            downloaded_file = bot.download_file(file_info.file_path)
-            pdf_files.append(downloaded_file)
-            bot.send_message(message.chat.id, "📚 أرسل ملف PDF آخر أو اكتب 'انتهيت' للدمج.")
-        else:
-            bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
-        bot.register_next_step_handler(message, lambda m: collect_pdfs(m, pdf_files))
-
-def split_pdf_step(message):
-    if message.document and message.document.mime_type == 'application/pdf':
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open('document.pdf', 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot.send_message(message.chat.id, "✂️ جار تقسيم الملف...")
-        doc = fitz.open('document.pdf')
-        for i in range(len(doc)):
-            new_doc = fitz.open()
-            new_doc.insert_pdf(doc, from_page=i, to_page=i)
-            new_doc.save(f'page_{i + 1}.pdf')
-            with open(f'page_{i + 1}.pdf', 'rb') as pdf_file:
-                bot.send_document(message.chat.id, pdf_file)
-        bot.send_message(message.chat.id, "✅ تم تقسيم الملف بنجاح!")
-    else:
-        bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
-        bot.register_next_step_handler(message, split_pdf_step)
-
-def pdf_to_images_step(message):
-    if message.document and message.document.mime_type == 'application/pdf':
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open('document.pdf', 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot.send_message(message.chat.id, "🖼️ جار تحويل الملف إلى صور...")
-        images = convert_from_path('document.pdf')
-        for i, image in enumerate(images):
-            image.save(f'page_{i}.png', 'PNG')
-            with open(f'page_{i}.png', 'rb') as img_file:
-                bot.send_photo(message.chat.id, img_file)
-        bot.send_message(message.chat.id, "✅ تم تحويل الملف إلى صور بنجاح!")
-    else:
-        bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
-        bot.register_next_step_handler(message, pdf_to_images_step)
-
-def images_to_pdf_step(message):
-    if message.photo:
-        file_info = bot.get_file(message.photo[-1].file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open(f'image_{message.photo[-1].file_id}.png', 'wb') as img_file:
-            img_file.write(downloaded_file)
-        bot.send_message(message.chat.id, "🖼️ أرسل صورة أخرى أو اكتب 'انتهيت' للدمج.")
-        bot.register_next_step_handler(message, lambda m: collect_images(m, [f'image_{message.photo[-1].file_id}.png']))
-    else:
-        bot.send_message(message.chat.id, "❌ الرجاء إرسال صورة صالحة.")
-        bot.register_next_step_handler(message, images_to_pdf_step)
-
-def collect_images(message, image_files):
-    if message.text and message.text.lower() == 'انتهيت':
-        if len(image_files) < 1:
-            bot.send_message(message.chat.id, "❌ يجب أن ترسل صورة واحدة على الأقل.")
-            bot.register_next_step_handler(message, lambda m: collect_images(m, image_files))
-        else:
-            bot.send_message(message.chat.id, "🖼️ جار دمج الصور...")
-            merged_pdf = fitz.open()
-            for image_file in image_files:
-                img_doc = fitz.open(image_file)
-                pdf_bytes = img_doc.convert_to_pdf()
-                img_pdf = fitz.open("pdf", pdf_bytes)
-                merged_pdf.insert_pdf(img_pdf)
-            merged_pdf.save('images_to_pdf.pdf')
-            with open('images_to_pdf.pdf', 'rb') as pdf_file:
-                bot.send_document(message.chat.id, pdf_file)
-            bot.send_message(message.chat.id, "✅ تم تحويل الصور إلى ملف PDF بنجاح!")
-    else:
-        if message.photo:
-            file_info = bot.get_file(message.photo[-1].file_id)
-            downloaded_file = bot.download_file(file_info.file_path)
-            image_file = f'image_{message.photo[-1].file_id}.png'
-            with open(image_file, 'wb') as img_file:
-                img_file.write(downloaded_file)
-            image_files.append(image_file)
-            bot.send_message(message.chat.id, "🖼️ أرسل صورة أخرى أو اكتب 'انتهيت' للدمج.")
-        else:
-            bot.send_message(message.chat.id, "❌ الرجاء إرسال صورة صالحة.")
-        bot.register_next_step_handler(message, lambda m: collect_images(m, image_files))
-
-def edit_text_step(message):
-    if message.document and message.document.mime_type == 'application/pdf':
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open('document.pdf', 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot.send_message(message.chat.id, "📝 أرسل لي النص الذي تريد تعديله.")
-        bot.register_next_step_handler(message, edit_text_content)
-    else:
-        bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
-        bot.register_next_step_handler(message, edit_text_step)
-
-def edit_text_content(message):
-    old_text = message.text
-    bot.send_message(message.chat.id, "📝 أرسل لي النص الجديد.")
-    bot.register_next_step_handler(message, lambda m: apply_text_edit(m, old_text))
-
-def apply_text_edit(message, old_text):
-    new_text = message.text
-    doc = fitz.open('document.pdf')
-    for page in doc:
-        areas = page.search_for(old_text)
-        for area in areas:
-            page.insert_text(area[:2], new_text, fontsize=12, color=(0, 0, 0))
-    doc.save('edited.pdf')
-    with open('edited.pdf', 'rb') as pdf_file:
-        bot.send_document(message.chat.id, pdf_file)
-    bot.send_message(message.chat.id, "✅ تم تعديل النص بنجاح!")
-
-def search_text_step(message):
-    if message.document and message.document.mime_type == 'application/pdf':
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open('document.pdf', 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot.send_message(message.chat.id, "🔍 أرسل لي النص الذي تريد البحث عنه.")
-        bot.register_next_step_handler(message, search_text)
-    else:
-        bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
-        bot.register_next_step_handler(message, search_text_step)
-
-def search_text(message):
-    search_query = message.text
-    doc = fitz.open('document.pdf')
-    results = []
-    for page_num, page in enumerate(doc, start=1):
-        areas = page.search_for(search_query)
-        for area in areas:
-            results.append(f"🔍 النص موجود في الصفحة {page_num} في الموقع {area}.")
-    if results:
-        bot.send_message(message.chat.id, "\n".join(results))
-    else:
-        bot.send_message(message.chat.id, "❌ لم يتم العثور على النص في الملف.")
-
-def protect_pdf_step(message):
-    if message.document and message.document.mime_type == 'application/pdf':
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open('document.pdf', 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot.send_message(message.chat.id, "🔒 أرسل لي كلمة المرور التي تريد تعيينها.")
-        bot.register_next_step_handler(message, apply_protection)
-    else:
-        bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
-        bot.register_next_step_handler(message, protect_pdf_step)
-
-def apply_protection(message):
-    password = message.text
-    pdf = pikepdf.Pdf.open('document.pdf')
-    pdf.save('protected.pdf', encryption=pikepdf.Encryption(owner=password, user=password, R=4))
-    with open('protected.pdf', 'rb') as pdf_file:
-        bot.send_document(message.chat.id, pdf_file)
-    bot.send_message(message.chat.id, "✅ تم تعيين كلمة المرور بنجاح!")
-
-def remove_password_step(message):
-    if message.document and message.document.mime_type == 'application/pdf':
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open('document.pdf', 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot.send_message(message.chat.id, "🔓 أرسل لي كلمة المرور لإزالة الحماية.")
-        bot.register_next_step_handler(message, remove_password)
-    else:
-        bot.send_message(message.chat.id, "❌ الرجاء إرسال ملف PDF صالح.")
-        bot.register_next_step_handler(message, remove_password_step)
-
-def remove_password(message):
-    password = message.text
-    try:
-        pdf = pikepdf.open('document.pdf', password=password)
-        pdf.save('unprotected.pdf')
-        with open('unprotected.pdf', 'rb') as pdf_file:
-            bot.send_document(message.chat.id, pdf_file)
-        bot.send_message(message.chat.id, "✅ تم إزالة كلمة المرور بنجاح!")
-    except pikepdf._qpdf.PasswordError:
-        bot.send_message(message.chat.id, "❌ كلمة المرور غير صحيحة.")
-        bot.register_next_step_handler(message, remove_password)
-
-# تشغيل البوت
-try:
-    bot.polling()
-except Exception as e:
-    print(f"خطأ: {e}")
-    bot.stop_polling() 
+while True:
+    executor.submit(create)
+    os.system('clear')
+    print(G + 'Created : ' + str(created))
+    print(L + 'Failed : ' + str(failed))
