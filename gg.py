@@ -14,8 +14,8 @@ failed = 0
 G = '\033[1;32m'
 L = '\033[1;31m'
 
-own_id = -1002158338443  # يجب استبدال هذا بـ chat_id للمجموعة
-tele_bot = '7379229933:AAHMid3NaTcohdy_x6eFJHQlRQ6A_Wp4SLk'  # يجب وضع التوكن الخاص بالبوت هنا
+own_id = 6365543397
+tele_bot = '6563666176:AAHrg7rSMT5wd58ZRus9Of-pnM4N79t8n6U'
 ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
 
 
@@ -62,7 +62,7 @@ def create():
         failed += 1
     elif '"status":"Success"' in str(decoded_data):
         created += 1
-        # Sending notification with the username to the group
+        # Sending notification with the username
         message = f"New user created: `{user}`"
         requests.post(f'https://api.telegram.org/bot{tele_bot}/sendmessage?chat_id={own_id}&text={message}&parse_mode=markdown')
     elif '"comment":"Retry"' in str(decoded_data):
