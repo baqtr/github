@@ -49,8 +49,8 @@ except:
 if not os.path.isdir('database'):
     os.mkdir('database')
 
-API_ID = "24119100"
-API_HASH = "bcf8a80c7f3615a6b0e174a5a830613c"
+API_ID = "21669021"
+API_HASH = "bcdae25b210b2cbe27c03117328648a2"
 admin = 7013440973 
 token = "7137946160:AAEtwG3rYA9WwtWCUNsSVxERMPDJVrke-DE"
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
