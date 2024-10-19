@@ -36,7 +36,7 @@ import threading
 # إعدادات البوتات
 
 mandatory_subscription_channel = 'https://t.me/bi_e0' # هنا هتحط قناتك اشتراك اجباري
-BOT_TOKEN = '7137946160:AAG7U3F_HWs6BG07vdigYjIzJqrimCn_J3g'  # token 
+BOT_TOKEN = '7137946160:AAEtwG3rYA9WwtWCUNsSVxERMPDJVrke-DE'  # token 
 ADMIN_ID = '7013440973'  # id
 
 ####   مكسل متحطش دول
