@@ -11,15 +11,15 @@
 	"repository": "https://github.com/Source-Ze/RashqZe1",
     "env": {
         "TG_BOT_TOKEN": {
-            "description": "Your Telegram Bot Token from @BotFather",
+            "description": "7137946160:AAEtwG3rYA9WwtWCUNsSVxERMPDJVrke-DE",
             "value": ""
         },
         "API_HASH": {
-            "description": "Your API Hash from my.telegram.org",
+            "description": "bcdae25b210b2cbe27c03117328648a2",
             "value": ""
         },
         "APP_ID": {
-            "description": "Your APP ID from my.telegram.org",
+            "description": "21669021",
             "value": ""
 	   }
 	},
