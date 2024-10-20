@@ -1,1 +1,1 @@
-worker: python gg.py
+worker: python main.py
