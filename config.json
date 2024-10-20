@@ -1,0 +1,20 @@
+{
+    "sudo": 6596299609,
+    "start_msg": "︎مرحبا بكم في اقوي بوت رشق علي الساحه",
+    "prices": {
+        "member": 1000,
+        "link": 1,
+        "vote": 100,
+        "react": 100,
+        "forward": 100,
+        "view": 100,
+        "poll": 100,
+        "userbot": 100,
+        "linkbot": 100,
+        "linkbot2": 100,
+        "comments": 100,
+        "spam": 100
+    },
+    "bot_token": "645433:AAFliw4z4FJyNh2DEYSTsYb-bGZp9EJYEUA",
+    "give_bot_token": "6950988959:AAHQrj17GynXpt7dYBZXJF_2ohg"
+}
